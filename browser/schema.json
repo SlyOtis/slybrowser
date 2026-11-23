@@ -1,0 +1,103 @@
+[
+  {
+    "namespace": "slybrowser",
+    "functions": [
+      {
+        "name": "getWelcome",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
+        "name": "getImages",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
+        "name": "applySuggestion",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "source",
+            "type": "string"
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "enum": [
+              "group",
+              "space",
+              "rule"
+            ]
+          },
+          {
+            "name": "index",
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "name": "page",
+            "type": "string",
+            "optional": true
+          }
+        ]
+      },
+      {
+        "name": "askAssistant",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "kind",
+            "type": "string",
+            "enum": [
+              "group",
+              "rule"
+            ]
+          },
+          {
+            "name": "text",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "refreshWelcome",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "since",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "cached",
+            "type": "boolean",
+            "optional": true
+          }
+        ]
+      },
+      {
+        "name": "notePage",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "page",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tabId",
+            "type": "integer"
+          }
+        ]
+      }
+    ]
+  }
+]

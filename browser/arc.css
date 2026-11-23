@@ -1,0 +1,1932 @@
+@namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+@namespace html url("http://www.w3.org/1999/xhtml");
+
+.zen-current-workspace-indicator:has(> .sly-action) > .zen-workspaces-actions {
+  order: 5;
+  margin-inline-start: 0 !important;
+}
+
+.zen-current-workspace-indicator > .sly-action {
+  order: 4;
+  --toolbarbutton-padding-inner: 6px !important;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.zen-current-workspace-indicator > .sly-action > .toolbarbutton-icon {
+  border-radius: max(calc(var(--border-radius-medium) - 4px), 4px) !important;
+  width: 26px;
+  height: 26px;
+}
+
+.zen-current-workspace-indicator > .sly-action:hover,
+.zen-current-workspace-indicator > .sly-action[open="true"],
+.zen-current-workspace-indicator > .sly-action[busy],
+.zen-current-workspace-indicator > .sly-action[done],
+.zen-current-workspace-indicator > .sly-action[failed] {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.sly-action {
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+
+.sly-action > .toolbarbutton-menu-dropmarker,
+.sly-action > dropmarker {
+  display: none;
+}
+
+
+.sly-action[busy] > .toolbarbutton-icon,
+.sly-similar[busy] {
+  animation: sly-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.sly-action[done] > .toolbarbutton-icon,
+.sly-similar[done] {
+  fill: var(--zen-primary-color, AccentColor);
+}
+
+.sly-action[failed] > .toolbarbutton-icon,
+.sly-similar[failed] {
+  fill: light-dark(#c50042, #ff6b8b);
+}
+
+.sly-view-groups {
+  list-style-image: url("chrome://browser/skin/zen-icons/selectable/grid-2x2.svg");
+}
+
+.sly-view-projects {
+  list-style-image: url("chrome://browser/skin/zen-icons/selectable/layers.svg");
+}
+
+toolbar .sly-view > .toolbarbutton-text {
+  display: none;
+}
+
+#widget-overflow-list .sly-view,
+.widget-overflow-list .sly-view {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+#widget-overflow-list .sly-view > .toolbarbutton-text,
+.widget-overflow-list .sly-view > .toolbarbutton-text {
+  display: flex;
+  padding-inline-start: 0;
+}
+
+.sly-view[checked] > .toolbarbutton-icon {
+  fill: var(--zen-primary-color, AccentColor);
+}
+
+.zen-current-workspace-indicator:has(> .sly-action) > .zen-current-workspace-indicator-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+zen-workspace[sly-cards] > .workspace-arrowscrollbox,
+zen-workspace[sly-cards] > .zen-workspace-empty-space {
+  display: none;
+}
+
+.sly-cards {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 2px var(--sly-inline, 6px) 12px;
+  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 8px;
+}
+
+#sly-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--sly-app-size, 5em), 1fr));
+  gap: 6px;
+  padding: 4px 1px 12px;
+}
+
+#sly-apps:empty {
+  display: none;
+}
+
+:root[sly-dragging] #sly-apps:empty {
+  display: grid;
+  min-height: 2.5em;
+  margin-bottom: 0.75em;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+}
+
+#sly-apps[sly-drop]:has(> .sly-app[placeholder]) {
+  box-shadow: none;
+}
+
+#sly-apps > .sly-app[placeholder] {
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zen-primary-color, AccentColor) 55%, transparent);
+  pointer-events: none;
+}
+
+#sly-apps > .sly-app[dragging] {
+  display: none;
+}
+
+.sly-app {
+  aspect-ratio: 2;
+  min-width: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  transition: background 120ms ease;
+}
+
+.sly-app:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-app[selected] {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.sly-app-icon {
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 4px;
+}
+
+.sly-shelf {
+  display: flex;
+  margin: 10px 6px 0;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.25);
+}
+
+.sly-card {
+  position: relative;
+  border-radius: 12px;
+  padding: 0 0 6px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.sly-card[folded] {
+  padding-bottom: 0;
+}
+
+.sly-card[folded] > .sly-card-expand {
+  display: none;
+}
+
+.sly-card[folded] > .sly-card-body {
+  mask-image: none;
+}
+
+.sly-card-head {
+  padding: 8px 10px 8px 12px;
+  gap: 4px;
+  border-radius: 12px 12px 0 0;
+}
+
+.sly-card[folded] > .sly-card-head {
+  border-radius: 12px;
+}
+
+.sly-card-head:hover {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.sly-card-chevron {
+  list-style-image: url("chrome://global/skin/icons/arrow-down-12.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 0.75em;
+  height: 0.75em;
+  margin-inline-start: 2px;
+  opacity: 0.5;
+  transform: rotate(0deg);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-card[folded] .sly-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.sly-card-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.sly-card-count {
+  margin: 0;
+  font-size: 0.75em;
+  opacity: 0.5;
+}
+
+.sly-card-head:hover > .sly-similar {
+  opacity: 0.6;
+}
+
+.sly-card-body {
+  padding: 0 6px;
+  gap: 1px;
+  overflow: hidden;
+  will-change: max-height;
+  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-card[truncated] > .sly-card-body {
+  mask-image: linear-gradient(to bottom, black calc(100% - 3.2em), transparent);
+}
+
+.sly-card-expand {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 2px;
+  margin: 0;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 0.75em;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.sly-card-expand:hover {
+  opacity: 1;
+}
+
+.sly-card-tab {
+  border-radius: 8px;
+  padding: 5px 8px;
+  gap: 8px;
+  cursor: default;
+}
+
+.sly-card-tab:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.sly-card-tab[selected] {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-weight: 500;
+}
+
+.sly-card-tab:not([sly-open]) > .sly-card-label {
+  opacity: 0.88;
+}
+
+.sly-card-tab[unverified] > .sly-card-label {
+  font-style: italic;
+}
+
+.sly-card-icon {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 3px;
+}
+
+.sly-card-label {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.sly-card-close {
+  list-style-image: url("chrome://browser/skin/zen-icons/close.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 0.9em;
+  height: 0.9em;
+  opacity: 0;
+}
+
+.sly-card-tab:hover > .sly-card-close {
+  opacity: 0.6;
+}
+
+.sly-card-close:hover {
+  opacity: 1;
+}
+
+.sly-similar {
+  list-style-image: url("chrome://browser/skin/zen-icons/search-page.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 0.9em;
+  height: 0.9em;
+  margin-inline-start: 2px;
+  opacity: 0;
+}
+
+.tabbrowser-tab .tab-background {
+  border-radius: 8px !important;
+}
+
+.tabbrowser-tab[selected] .tab-background {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.14) !important;
+}
+
+@keyframes sly-pulse {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sly-card[plain] {
+  background: none;
+  box-shadow: none;
+  padding: 0 0 6px;
+}
+
+.sly-card[plain] > .sly-card-head {
+  padding: 17px 12px 17px 17px;
+  gap: 9px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sly-card[plain] > .sly-card-head > .sly-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.sly-space-chevron {
+  list-style-image: url("chrome://browser/skin/zen-icons/arrow-right.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  transform: rotate(90deg);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-card[plain][folded] .sly-space-chevron {
+  transform: rotate(0deg);
+}
+
+.sly-open {
+  margin-inline: var(--sly-inline, 6px);
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator {
+  cursor: default;
+}
+
+zen-workspace[sly-cards]:not([sly-board-collapsed]) .zen-current-workspace-indicator-chevron {
+  transform: rotate(90deg);
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator-chevron {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-card[plain] > .sly-card-body {
+  padding: 0;
+}
+
+.sly-card-icon,
+.sly-app-icon {
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+zen-workspace[sly-cards]:not([sly-board-collapsed]) .zen-current-workspace-indicator-chevron {
+  transform: rotate(90deg) !important;
+}
+
+.sly-open:not(:empty) {
+  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+}
+
+.sly-open:empty {
+  min-height: 1.5em;
+}
+
+zen-workspace[sly-land-loose] > .sly-open {
+  border-radius: 10px;
+  border-bottom-color: transparent;
+  margin-bottom: 4px;
+  outline: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  outline-offset: -1px;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator-chevron {
+  display: none;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator-icon:is([no-icon], :empty) {
+  display: none;
+}
+
+.sly-space-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+zen-workspace:not([sly-cards]) .sly-space-icon,
+zen-workspace[sly-cards] .zen-current-workspace-indicator-icon:not([no-icon]):not(:empty) ~ .sly-space-icon {
+  display: none;
+}
+
+.zen-current-workspace-indicator > .sly-board-chevron {
+  order: 6;
+  margin-inline-start: 4px;
+}
+
+zen-workspace[sly-board-collapsed] .sly-board-chevron {
+  transform: rotate(0deg);
+}
+
+zen-workspace[sly-cards] > .zen-current-workspace-indicator {
+  border-radius: 0;
+  transition: background 120ms ease;
+}
+
+zen-workspace[sly-cards]:has(> .zen-current-workspace-indicator:hover) > .zen-current-workspace-indicator,
+zen-workspace[sly-cards]:has(> .zen-current-workspace-indicator:hover) > .sly-cards {
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+zen-workspace[sly-cards] > .sly-cards {
+  transition: background 120ms ease, max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-group-icon {
+  width: 1.15em;
+  height: 1.15em;
+  margin-inline-end: 6px;
+  border-radius: 4px;
+}
+
+label.sly-group-icon,
+label.sly-emoji {
+  margin: 0 6px 0 0;
+  width: auto;
+  height: auto;
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.sly-section {
+  margin-inline: -6px;
+}
+
+.sly-section-head {
+  padding: 5px 14px;
+  gap: 6px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-section[depth="1"] {
+  --sly-depth: 10px;
+}
+
+.sly-section[depth="2"] {
+  --sly-depth: 20px;
+}
+
+.sly-section[depth="3"] {
+  --sly-depth: 30px;
+}
+
+.sly-section-head:hover {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.sly-section-title {
+  margin: 0;
+  font-size: 0.75em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.sly-section[depth]:not([depth="0"]) > .sly-section-head > .sly-section-title {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8em;
+}
+
+.sly-section-body {
+  padding: 2px 6px 4px 6px;
+  gap: 1px;
+  overflow: hidden;
+  will-change: max-height;
+  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-section[folded] > .sly-section-head .sly-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.sly-icon-panel {
+  --panel-padding: 12px;
+  --panel-border-radius: 14px;
+}
+
+.sly-icon-panel > .panel-arrowcontent,
+.sly-icon-panel {
+  min-width: 18em;
+  max-width: 22em;
+}
+
+.sly-icon-title {
+  margin: 4px 4px 0;
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+.sly-icon-hint {
+  margin: 2px 4px 10px;
+  font-size: 0.8em;
+  opacity: 0.6;
+}
+
+.sly-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 4px 10px;
+}
+
+.sly-icon-tile {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.sly-icon-tile:hover {
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  transform: scale(1.04);
+}
+
+.sly-icon-tile[selected] {
+  outline: 2px solid var(--zen-primary-color, AccentColor);
+  outline-offset: -2px;
+}
+
+.sly-icon-tile-image {
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 5px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.sly-icon-footer {
+  gap: 6px;
+  margin: 0 4px 2px;
+}
+
+.sly-icon-button {
+  flex: 1;
+  border-radius: 8px;
+}
+
+.sly-add-space {
+  list-style-image: url("chrome://browser/skin/zen-icons/plus.svg");
+}
+
+zen-workspace[sly-board-collapsed] > .sly-cards {
+  padding-block: 0;
+  overflow: hidden;
+}
+
+#urlbar-container {
+  position: relative;
+  overflow: hidden;
+}
+
+#sly-page {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  gap: 8px;
+  padding-inline: 10px 4px;
+  border-radius: var(--zen-urlbar-outer-border-radius, 10px);
+  cursor: default;
+  user-select: text;
+}
+
+*|*#urlbar[focused="true"]:not([zen-floating-urlbar]) ~ #sly-page {
+  display: none;
+}
+
+#sly-page {
+  background: var(--sly-urlbar-background, transparent);
+}
+
+*|*#urlbar:not([breakout-extend], [open], [focused="true"]) > *|*.urlbar-input-container {
+  opacity: 0 !important;
+}
+
+.sly-page-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.sly-page-text {
+  min-width: 0;
+  gap: 0;
+}
+
+.sly-page-title {
+  margin: 0;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.sly-page-host {
+  margin: 0;
+  font-size: 0.75em;
+  opacity: 0.55;
+}
+
+.sly-page-copy {
+  list-style-image: url("chrome://browser/skin/zen-icons/edit-copy.svg");
+  opacity: 0.6;
+}
+
+.sly-page-copy:hover {
+  opacity: 1;
+}
+
+#sly-apps[fit="height"] {
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--sly-app-size, 5em) * 1.6), 1fr));
+}
+
+#sly-apps[fit="height"] > .sly-app {
+  aspect-ratio: auto;
+  height: var(--sly-app-size, 5em);
+}
+
+html|div#sly-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: max-content;
+  z-index: 2147483647;
+  pointer-events: none;
+  max-width: 24em;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgb(22 20 24 / 0.94);
+  color: rgb(255 255 255 / 0.92);
+  font: menu;
+  font-size: 0.8em;
+  line-height: 1.35;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 70ms ease, transform 70ms ease;
+}
+
+html|div#sly-tip[shown] {
+  opacity: 1;
+  transform: none;
+}
+
+.sly-similar {
+  width: 1.1em !important;
+  height: 1.1em !important;
+}
+
+zen-workspace[sly-cards] > .zen-current-workspace-indicator::before,
+zen-workspace[sly-cards] > .zen-current-workspace-indicator:hover::before {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+zen-workspace[sly-cards] .zen-workspaces-actions {
+  list-style-image: url("chrome://global/skin/icons/more.svg") !important;
+}
+
+@keyframes sly-ai {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.sly-card[sly-ai],
+zen-workspace[sly-ai] > .zen-current-workspace-indicator,
+zen-workspace[sly-ai] > .sly-cards {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 16%, transparent),
+    color-mix(in srgb, #8a5cff 20%, transparent),
+    color-mix(in srgb, #ff6fb1 16%, transparent),
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 16%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: sly-ai 2.4s linear infinite;
+}
+
+
+zen-workspace[sly-cards] > .zen-current-workspace-indicator,
+zen-workspace[sly-cards] > .sly-cards {
+  border-radius: 0 !important;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator-stack {
+  display: flex;
+  margin-inline-end: 0 !important;
+  margin-right: 0 !important;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+}
+
+.sly-space-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.sly-space-icon-image {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 4px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+label.sly-space-icon-image {
+  width: auto;
+  height: auto;
+  font-size: 14px;
+  line-height: 1;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator-chevron {
+  display: none !important;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator > .zen-workspaces-actions {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  opacity: 0.7 !important;
+}
+
+zen-workspace[sly-cards] .zen-current-workspace-indicator > .zen-workspaces-actions:hover,
+zen-workspace[sly-cards] .zen-current-workspace-indicator > .zen-workspaces-actions[open="true"] {
+  opacity: 1 !important;
+}
+
+.sly-similar.sly-card-fold,
+.sly-fold-all {
+  list-style-image: url("chrome://browser/skin/zen-icons/arrows-expand.svg");
+}
+
+html|div#sly-drag {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 22em;
+  padding: 7px 12px 7px 9px;
+  border-radius: 999px;
+  background: rgb(30 27 34 / 0.96);
+  color: rgb(255 255 255 / 0.95);
+  font: menu;
+  font-size: 0.85em;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+html|div#sly-drag > html|img {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+html|div#sly-drag > html|span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sly-card-tab[dragging] {
+  opacity: 0.35;
+}
+
+:root[sly-dragging] .sly-card:not([plain]),
+:root[sly-dragging] .sly-section,
+:root[sly-dragging] .sly-open {
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+:root[sly-dragging] .sly-open {
+  min-height: 2.5em;
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+
+:root[sly-dragging] .sly-open:empty {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.sly-card[sly-drop],
+.sly-section[sly-drop] > .sly-section-head,
+.sly-open[sly-drop] {
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zen-primary-color, AccentColor) 55%, transparent);
+}
+
+.sly-icon-hint {
+  margin: 2px 4px 10px;
+  font-size: 0.8em;
+  opacity: 0.6;
+  max-width: 20em;
+}
+
+.sly-section-body {
+  margin-inline-start: 18px;
+  padding-inline-start: 10px !important;
+}
+
+.sly-section[depth="1"] {
+  --sly-depth: 14px;
+}
+
+.sly-section[depth="2"] {
+  --sly-depth: 28px;
+}
+
+.sly-section[depth="3"] {
+  --sly-depth: 42px;
+}
+
+.sly-section .sly-section {
+  margin-inline: 0;
+}
+
+.sly-section .sly-section > .sly-section-head {
+  padding-inline-start: 8px;
+  border-bottom: none;
+  background: none;
+}
+
+.zen-current-workspace-indicator > .sly-action:not(.zen-workspaces-actions) {
+  opacity: 0;
+}
+
+.zen-current-workspace-indicator:hover > .sly-action:not(.zen-workspaces-actions),
+.zen-current-workspace-indicator > .sly-action[busy],
+.zen-current-workspace-indicator > .sly-action[open="true"] {
+  opacity: 0.7;
+}
+
+.zen-current-workspace-indicator > .sly-action:hover {
+  opacity: 1;
+}
+
+.sly-page-clear {
+  list-style-image: url("chrome://browser/skin/zen-icons/forget.svg");
+  opacity: 0.6;
+}
+
+.sly-page-clear:hover {
+  opacity: 1;
+}
+
+.sly-page-text {
+  overflow: hidden;
+}
+
+.sly-page-title,
+.sly-page-host {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sly-warning-head {
+  gap: 8px;
+}
+
+.sly-warning-icon {
+  list-style-image: url("chrome://global/skin/icons/warning.svg");
+  -moz-context-properties: fill;
+  fill: #e8a33d;
+  width: 18px;
+  height: 18px;
+  margin-inline-start: 4px;
+}
+
+.sly-danger-button {
+  color: #fff;
+  background-color: #b3243b;
+}
+
+html|input.sly-space-name {
+  margin: 0 4px 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 1em;
+}
+
+.sly-field-label {
+  margin: 0 4px 6px;
+  font-size: 0.8em;
+  opacity: 0.6;
+}
+
+.sly-swatches {
+  gap: 8px;
+  margin: 0 4px 12px;
+}
+
+.sly-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  transition: transform 120ms ease;
+}
+
+.sly-swatch:hover {
+  transform: scale(1.12);
+}
+
+.sly-swatch[selected] {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.sly-space-row {
+  gap: 10px;
+  margin: 0 4px 12px;
+}
+
+.sly-primary-button {
+  color: #fff;
+  background-color: var(--zen-primary-color, AccentColor);
+}
+
+.sly-dialog {
+  --panel-background: rgb(34 30 38 / 0.97);
+  --panel-padding: 16px;
+  --panel-border-radius: 16px;
+  min-width: 340px;
+}
+
+.sly-dialog > * {
+  max-width: 340px;
+}
+
+#sly-page > toolbarbutton {
+  margin-inline: 0 !important;
+  --toolbarbutton-outer-padding: 0px;
+  --toolbarbutton-inner-padding: 5px;
+}
+
+#sly-page > toolbarbutton + toolbarbutton {
+  margin-inline-start: -8px !important;
+}
+
+#sly-page > toolbarbutton:last-child {
+  margin-inline-end: -4px !important;
+}
+
+.sly-section-body > *,
+.sly-card-body > .sly-section {
+  position: relative;
+}
+
+.sly-section-body > *::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -10px;
+  top: 0;
+  bottom: 0;
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  pointer-events: none;
+}
+
+.sly-section-body > .sly-card-tab:last-child::before {
+  bottom: 50%;
+}
+
+.sly-section-body > .sly-section:last-child::before {
+  bottom: auto;
+  height: 1.05em;
+}
+
+.sly-section-body > .sly-card-tab::after,
+.sly-section-body > .sly-section > .sly-section-head::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: -10px;
+  top: 50%;
+  width: 8px;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  pointer-events: none;
+}
+
+.sly-section-body > .sly-section > .sly-section-head {
+  position: relative;
+  padding-inline-start: 4px;
+}
+
+.sly-section-body > .sly-section > .sly-section-head::after {
+  inset-inline-start: -10px;
+  top: 50%;
+}
+
+.sly-section .sly-section {
+  margin-inline: 0;
+}
+
+.sly-section-head {
+  padding-inline-end: 10px !important;
+}
+
+.sly-section-body {
+  padding-inline-end: 6px !important;
+}
+
+.sly-section-head > .sly-similar {
+  opacity: 0;
+}
+
+.sly-section-head:hover > .sly-similar,
+.sly-section-head > .sly-similar[busy] {
+  opacity: 0.6;
+}
+
+.sly-section[sly-ai] > .sly-section-head,
+.sly-section[sly-ai] > .sly-section-body {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 16%, transparent),
+    color-mix(in srgb, #8a5cff 20%, transparent),
+    color-mix(in srgb, #ff6fb1 16%, transparent),
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 16%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: sly-ai 2.4s linear infinite;
+}
+
+.zen-current-workspace-indicator > .sly-action:not(.zen-workspaces-actions) {
+  display: none;
+}
+
+.zen-current-workspace-indicator:hover > .sly-action:not(.zen-workspaces-actions),
+.zen-current-workspace-indicator > .sly-action[busy],
+.zen-current-workspace-indicator > .sly-action[open="true"] {
+  display: flex;
+}
+
+.sly-section .sly-section > .sly-section-head {
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-section-body > .sly-section:last-child::before {
+  display: none;
+}
+
+.sly-section-body > .sly-section > .sly-section-head::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -10px;
+  top: 0;
+  bottom: -1px;
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  pointer-events: none;
+}
+
+.sly-section-body > .sly-section > .sly-section-head::after {
+  top: auto;
+  bottom: -1px;
+  width: 10px;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-section[depth="0"] > .sly-section-body {
+  margin-inline-start: 0;
+  padding-inline-start: 6px !important;
+}
+
+.sly-section[depth="0"] > .sly-section-body > *::before,
+.sly-section[depth="0"] > .sly-section-body > *::after,
+.sly-section[depth="0"] > .sly-section-body > .sly-section > .sly-section-head::before,
+.sly-section[depth="0"] > .sly-section-body > .sly-section > .sly-section-head::after {
+  display: none;
+}
+
+.sly-section:not([depth="0"]) > .sly-section-head {
+  position: relative;
+  padding-inline-start: 28px !important;
+}
+
+.sly-section-stem {
+  position: absolute;
+  inset-inline-start: 18px;
+  top: 50%;
+  bottom: -1px;
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  pointer-events: none;
+}
+
+.sly-section:not([depth="0"])[folded] > .sly-section-head > .sly-section-stem {
+  display: none;
+}
+
+.sly-card:not([plain]) > .sly-card-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.sly-card:not([folded]):not([plain]) > .sly-card-head {
+  border-radius: 12px 12px 0 0;
+}
+
+.sly-section > .sly-section-head {
+  position: sticky;
+  top: 2.65em;
+  z-index: 3;
+  backdrop-filter: blur(16px);
+}
+
+.sly-card-body,
+.sly-section-body {
+  overflow: clip;
+}
+
+.sly-card-more {
+  appearance: none;
+  padding: 2px;
+  border-radius: 6px;
+  list-style-image: url("chrome://global/skin/icons/more.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0;
+}
+
+.sly-card-more > .toolbarbutton-icon {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.sly-card-more > .toolbarbutton-text,
+.sly-card-more > dropmarker {
+  display: none;
+}
+
+.sly-card-head:hover > .sly-card-more,
+.sly-section-head:hover > .sly-card-more,
+.sly-card-more[open="true"],
+.sly-card-more[busy] {
+  opacity: 0.6;
+}
+
+.sly-card-more[busy] > .toolbarbutton-icon {
+  animation: sly-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.sly-ai-area {
+  margin-top: 10px;
+  margin-inline: calc(-1 * var(--sly-inline, 6px));
+  padding: 0 var(--sly-inline, 6px) 6px;
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.sly-ai-head {
+  padding: 14px 12px 10px 11px;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.sly-ai-icon {
+  list-style-image: url("chrome://browser/skin/zen-icons/sparkles.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
+}
+
+.sly-ai-title {
+  margin: 0;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.sly-ai-area[folded] > .sly-ai-head .sly-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.sly-ai-body,
+.sly-summary-details {
+  overflow: clip;
+  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-summary-icon {
+  list-style-image: url("chrome://browser/skin/zen-icons/sparkles.svg");
+}
+
+.sly-summary-details {
+  padding: 0 4px 0 30px;
+  gap: 1px;
+}
+
+.sly-summary-overview {
+  margin: 2px 6px 6px;
+  font-size: 0.85em;
+  line-height: 1.45;
+  opacity: 0.75;
+}
+
+.sly-summary-text {
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 1.35;
+}
+
+.sly-summary-row > .sly-card-close {
+  margin-inline-start: 4px;
+}
+
+.sly-card:not([plain]) {
+  background: rgb(var(--sly-tint, 255 255 255) / 0.07);
+  box-shadow: none;
+}
+
+.sly-card:not([plain]) > .sly-card-head {
+  background: transparent;
+}
+
+.sly-card:not([plain]) > .sly-card-head:hover {
+  background: rgb(var(--sly-tint, 255 255 255) / 0.14);
+}
+
+.sly-card:not([plain]) {
+  background: linear-gradient(
+    115deg,
+    rgb(var(--sly-tint, 255 255 255) / 0.17) 0%,
+    rgb(var(--sly-tint2, var(--sly-tint, 255 255 255)) / 0.09) 48%,
+    rgb(var(--sly-tint2, var(--sly-tint, 255 255 255)) / 0.025) 100%
+  );
+}
+
+.sly-card-more {
+  flex: none !important;
+}
+
+.sly-card[sly-painted]:not([plain]) {
+  background: linear-gradient(
+    115deg,
+    rgb(var(--sly-c1) / 0.34) 0%,
+    rgb(var(--sly-c2) / 0.24) 55%,
+    rgb(var(--sly-c3) / 0.16) 100%
+  );
+}
+
+.sly-card[sly-painted]:not([plain]) > .sly-card-head {
+  background: transparent;
+}
+
+.sly-card[sly-land] {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent), 0 2px 10px rgb(0 0 0 / 0.18);
+}
+
+.sly-card[sly-painted][sly-land] {
+  background: linear-gradient(
+    115deg,
+    rgb(var(--sly-c1) / 0.56) 0%,
+    rgb(var(--sly-c2) / 0.42) 55%,
+    rgb(var(--sly-c3) / 0.3) 100%
+  );
+}
+
+.sly-card[sly-ink="dark"] {
+  color: rgb(22 16 24 / 0.9);
+}
+
+.sly-card[sly-ink="light"] {
+  color: rgb(252 248 250 / 0.96);
+}
+
+.sly-card:not([plain]) :is(.sly-card-label, .sly-card-count, .sly-section-title, .sly-card-expand) {
+  opacity: 1;
+}
+
+.sly-card:not([plain]) .sly-card-chevron {
+  opacity: 0.85;
+}
+
+.sly-card:not([plain]) .sly-section-head {
+  border-bottom-color: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.sly-card:not([plain]) .sly-card-tab[unverified] > .sly-card-label {
+  opacity: 0.8;
+}
+
+.sly-card:not([plain]) > .sly-card-head {
+  backdrop-filter: none;
+  background: transparent;
+}
+
+.sly-section > .sly-section-head {
+  top: 0;
+  backdrop-filter: none;
+}
+
+.sly-card:not([plain]) > .sly-card-head > .sly-card-icon {
+  box-sizing: content-box;
+  padding: 0.22em;
+  border-radius: 50%;
+  background: rgb(252 248 250 / 0.95);
+}
+
+.sly-card[sly-ink="dark"]:not([plain]) > .sly-card-head > .sly-card-icon {
+  background: rgb(22 16 24 / 0.9);
+}
+
+#sly-page[sly-painted] {
+  background: linear-gradient(115deg, rgb(var(--sly-c1) / 0.34) 0%, rgb(var(--sly-c2) / 0.24) 55%, rgb(var(--sly-c3) / 0.16) 100%), var(--sly-urlbar-background, transparent);
+}
+
+#sly-page[sly-ink="dark"] {
+  color: rgb(18 12 20);
+  background: linear-gradient(115deg, rgb(var(--sly-c1) / 0.34) 0%, rgb(var(--sly-c2) / 0.24) 55%, rgb(var(--sly-c3) / 0.16) 100%), linear-gradient(rgb(255 255 255 / 0.42), rgb(255 255 255 / 0.42));
+}
+
+#sly-page[sly-ink="light"] {
+  color: rgb(255 252 254);
+  background: linear-gradient(115deg, rgb(var(--sly-c1) / 0.34) 0%, rgb(var(--sly-c2) / 0.24) 55%, rgb(var(--sly-c3) / 0.16) 100%), linear-gradient(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.32));
+}
+
+#sly-page[sly-ink] .sly-page-host {
+  opacity: 0.8;
+}
+
+.sly-card-head > .sly-card-fold,
+.sly-card-head > .sly-card-more,
+.sly-section-head > .sly-card-more {
+  max-width: 0 !important;
+  min-width: 0 !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+  overflow: hidden;
+  transition: max-width 0.18s cubic-bezier(0.4, 0, 0.2, 1), padding 0.18s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+}
+
+.sly-card-head:hover > .sly-card-fold,
+.sly-card-head:hover > .sly-card-more,
+.sly-card-head > .sly-card-more[open="true"],
+.sly-card-head > .sly-card-more[busy],
+.sly-section-head:hover > .sly-card-more,
+.sly-section-head > .sly-card-more[open="true"],
+.sly-section-head > .sly-card-more[busy] {
+  max-width: 2em !important;
+  padding-inline: 2px !important;
+}
+
+.sly-welcome {
+  list-style-image: url("chrome://browser/skin/zen-icons/home.svg");
+}
+
+.sly-card:not([plain]) > .sly-card-head {
+  top: 8px;
+}
+
+.sly-menu-header {
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.sly-menu {
+  --panel-padding: 8px;
+  --panel-border-radius: 14px;
+}
+
+.sly-menu-columns {
+  align-items: stretch;
+}
+
+.sly-menu-column {
+  min-width: 13em;
+  max-width: 18em;
+  gap: 1px;
+  padding-inline: 4px;
+}
+
+.sly-menu-column + .sly-menu-column {
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-menu-column > .sly-menu-header {
+  margin: 6px 8px 4px;
+}
+
+.sly-menu-column > .sly-menu-row + .sly-menu-header {
+  margin-top: 10px;
+}
+
+.sly-menu-row {
+  justify-content: flex-start;
+  margin: 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 6px;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.sly-menu-row:not([disabled]):hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.sly-menu-row[disabled] {
+  opacity: 0.6;
+}
+
+.sly-menu-row[danger] {
+  color: #e5566a;
+}
+
+.sly-menu-row[danger]:not([disabled]):hover {
+  background: rgb(179 36 59 / 0.18);
+}
+
+.sly-menu-row > .toolbarbutton-icon {
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.sly-menu-row[checked] > .toolbarbutton-icon {
+  list-style-image: url("chrome://global/skin/icons/check.svg");
+}
+
+.sly-menu-row[checked] > .toolbarbutton-text {
+  font-weight: 600;
+}
+
+.sly-menu-row > .toolbarbutton-text {
+  text-align: start !important;
+  flex: 1;
+}
+
+.sly-rule-list {
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.sly-rule-row {
+  padding: 4px 6px;
+  border-radius: 6px;
+  gap: 6px;
+}
+
+.sly-rule-row:hover {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.sly-rule-row > .sly-card-close {
+  display: flex;
+}
+
+zen-workspace[sly-cards] {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none;
+  padding-top: 8px !important;
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 8px, black 8px);
+}
+
+zen-workspace[sly-cards] > .sly-cards {
+  flex: none;
+  overflow: visible;
+}
+
+zen-workspace[sly-cards] > .zen-current-workspace-indicator {
+  display: none !important;
+}
+
+zen-workspace[sly-cards][sly-board-collapsed] > .sly-cards {
+  display: flex !important;
+  max-height: none !important;
+}
+
+#navigator-toolbox[sly-loading] {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent),
+    color-mix(in srgb, #8a5cff 16%, transparent),
+    color-mix(in srgb, #ff6fb1 12%, transparent),
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: sly-ai 2.4s linear infinite;
+}
+
+#sly-toggle {
+  margin-inline: 2px;
+}
+
+#stop-reload-button {
+  display: none !important;
+}
+
+.sly-reload,
+.sly-sync {
+  list-style-image: url("chrome://browser/skin/zen-icons/reload.svg");
+}
+
+.sly-sync {
+  list-style-image: url("chrome://browser/skin/zen-icons/history.svg");
+}
+
+.sly-sync[busy] > .toolbarbutton-icon {
+  animation: sly-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.sly-toggle {
+  border-radius: var(--toolbarbutton-border-radius, 6px);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.sly-toggle > .sly-view {
+  margin: 0 !important;
+}
+
+.sly-toggle > .sly-view > .toolbarbutton-icon {
+  border-radius: var(--toolbarbutton-border-radius, 6px) !important;
+}
+
+.sly-toggle > .sly-view[checked] > .toolbarbutton-icon {
+  background: color-mix(in srgb, currentColor 18%, transparent) !important;
+}
+
+:is(#sly-welcome, #sly-add-space, #sly-sync, #sly-reload, #sly-toggle > .toolbarbutton-1):not([overflowedItem], #sly-toggle[overflowedItem] > *) {
+  padding-inline: 1px !important;
+}
+
+:is(#sly-welcome, #sly-add-space, #sly-sync, #sly-reload, #sly-toggle:not([overflowedItem]) > .toolbarbutton-1):not([overflowedItem]) > .toolbarbutton-icon {
+  width: calc(2 * var(--toolbarbutton-inner-padding, 6px) + 14px) !important;
+  height: calc(2 * var(--toolbarbutton-inner-padding, 6px) + 14px) !important;
+  padding: var(--toolbarbutton-inner-padding, 6px) !important;
+}
+
+.sly-toggle > .sly-view[checked] > .toolbarbutton-icon {
+  fill: currentColor !important;
+}
+
+.sly-overflow-header {
+  margin: 8px 12px 2px;
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.sly-overflow-header:first-child {
+  margin-top: 2px;
+}
+
+#sly-toggle[overflowedItem] {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0 !important;
+  background: none !important;
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1 > .toolbarbutton-text {
+  display: flex !important;
+}
+
+#sly-toggle[overflowedItem] > .sly-view[checked] > .toolbarbutton-icon {
+  background: none !important;
+}
+
+#sly-toggle[overflowedItem] > .sly-view[checked] {
+  font-weight: 600;
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1 {
+  justify-content: flex-start;
+  margin: 0 !important;
+  padding: var(--arrowpanel-menuitem-padding, 8px) !important;
+  border-radius: var(--arrowpanel-menuitem-border-radius, 4px);
+  gap: var(--arrowpanel-menuitem-gap, 8px);
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1 > .toolbarbutton-icon {
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+}
+
+#sly-toggle[overflowedItem] {
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  padding: 0 !important;
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1 {
+  justify-content: flex-start !important;
+  width: 100%;
+  padding-inline: calc(var(--arrowpanel-menuitem-padding-inline, 8px) + 2px) !important;
+}
+
+#sly-toggle[overflowedItem] > .toolbarbutton-1 > .toolbarbutton-text {
+  text-align: start !important;
+  flex: 1;
+}
+
+#sly-page {
+  inset: 2px 1px;
+  border-radius: 14px;
+}
+
+[sly-gone] {
+  display: none !important;
+}
+
+#sly-icon-panel .sly-warning-head {
+  max-width: 20em;
+  align-items: flex-start;
+}
+
+#sly-icon-panel .sly-warning-head > .sly-icon-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#sly-icon-panel .sly-warning-text {
+  max-width: 20em;
+  overflow-wrap: anywhere;
+}
+
+.sly-row-more {
+  list-style-image: url("chrome://global/skin/icons/more.svg");
+  -moz-context-properties: fill;
+  fill: currentColor;
+  width: 0.9em;
+  height: 0.9em;
+  max-width: 0;
+  opacity: 0;
+  transition: max-width 0.18s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+}
+
+.sly-card-tab:hover > .sly-row-more,
+.sly-row-more[busy] {
+  max-width: 1em;
+  opacity: 0.7;
+}
+
+zen-workspace[sly-board-collapsed] > .sly-cards {
+  overflow: clip !important;
+}
+
+.sly-card[sly-ai],
+.sly-card-tab[busy],
+.sly-section[sly-ai] > .sly-section-head,
+zen-workspace[sly-ai] > .zen-current-workspace-indicator {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent),
+    color-mix(in srgb, #8a5cff 26%, transparent),
+    color-mix(in srgb, #ff6fb1 20%, transparent),
+    color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent)
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: sly-ai 2.4s linear infinite !important;
+}
+
+#zen-create-new-button {
+  display: none !important;
+}
+
+#sly-space-name {
+  display: flex !important;
+  flex: none;
+  max-width: 40%;
+  margin: 0 8px 0 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  opacity: 0.75;
+  text-align: end;
+}
+
+#zen-workspaces-button > toolbarbutton[sly-icon] > .zen-workspace-icon {
+  display: none !important;
+}
+
+#zen-workspaces-button > toolbarbutton > .sly-space-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  margin: auto;
+}
+
+#zen-workspaces-button > toolbarbutton:not([active]) > .sly-space-dot {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+#zen-workspaces-button > toolbarbutton {
+  border-radius: 8px;
+}
+
+#zen-workspaces-button > toolbarbutton[active] {
+  background: color-mix(in srgb, currentColor 16%, transparent) !important;
+}
+
+#zen-workspaces-button > toolbarbutton[active] > .sly-space-dot {
+  opacity: 1;
+  filter: none;
+}
+
+.sly-sort-unsorted {
+  list-style-image: url("chrome://browser/skin/zen-icons/sparkles.svg");
+}
+
+#zen-toast-container {
+  display: none !important;
+}
+
+menuitem.menuitem-iconic[image^="chrome://browser/skin/zen-icons/"],
+menuitem.menuitem-iconic[image^="chrome://global/skin/icons/"] {
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+:is(.sly-card, .sly-section, zen-workspace)[sly-ai] .sly-card-tab > :is(.sly-row-more, .sly-card-close) {
+  display: none !important;
+}
+
+.sly-space-block {
+  gap: 8px;
+  border-radius: 12px;
+}
+
+.sly-space-head {
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.sly-space-head:hover {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.sly-space-head-icon {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 3px;
+}
+
+.sly-space-head-name {
+  margin: 0;
+  font-size: 1em;
+}
+
+.sly-space-head > .sly-card-count {
+  opacity: 0.6;
+}
+
+.sly-space-head > .sly-card-more {
+  max-width: 0 !important;
+  padding-inline: 0 !important;
+  overflow: hidden;
+  transition: max-width 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sly-space-head:hover > .sly-card-more,
+.sly-space-head > .sly-card-more[open="true"] {
+  max-width: 2em !important;
+  padding-inline: 2px !important;
+  opacity: 0.7;
+}
+
+.sly-space-block[folded] .sly-space-head > .sly-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.sly-space-body {
+  gap: 8px;
+}
+
+.sly-space-block[sly-ai] > .sly-space-head {
+  background-image: linear-gradient(110deg, color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent), color-mix(in srgb, #8a5cff 26%, transparent), color-mix(in srgb, #ff6fb1 20%, transparent), color-mix(in srgb, var(--zen-primary-color, AccentColor) 18%, transparent)) !important;
+  background-size: 200% 100% !important;
+  animation: sly-ai 2.4s linear infinite !important;
+}
+
+:root[sly-sidebar-ink="light"] #navigator-toolbox,
+:root[sly-sidebar-ink="light"] #navigator-toolbox zen-workspace[sly-cards] {
+  --toolbar-color: rgb(255 252 254) !important;
+  --toolbox-textcolor: rgb(255 252 254) !important;
+  --toolbarbutton-icon-fill: rgb(255 252 254 / 0.9) !important;
+  color: rgb(255 252 254) !important;
+}
+
+:root[sly-sidebar-ink="dark"] #navigator-toolbox,
+:root[sly-sidebar-ink="dark"] #navigator-toolbox zen-workspace[sly-cards] {
+  --toolbar-color: rgb(18 12 20) !important;
+  --toolbox-textcolor: rgb(18 12 20) !important;
+  --toolbarbutton-icon-fill: rgb(18 12 20 / 0.85) !important;
+  color: rgb(18 12 20) !important;
+}
+
+.sly-page-inspect {
+  list-style-image: url("chrome://devtools/skin/images/tool-inspector.svg");
+  opacity: 0.6;
+}
+
+.sly-page-inspect:hover {
+  opacity: 1;
+}
+
+.sly-app[sly-painted] {
+  background: linear-gradient(115deg, rgb(var(--sly-c1) / 0.42) 0%, rgb(var(--sly-c2) / 0.3) 55%, rgb(var(--sly-c3) / 0.2) 100%) !important;
+}
+
+*|*#urlbar:not([breakout-extend], [open], [focused="true"]) > *|*.urlbar-background {
+  opacity: 0 !important;
+}
+
+#sly-page:not([sly-painted]) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.sly-row-live {
+  margin: 0;
+  min-width: 1.5em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-size: 0.72em;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.sly-card-tab[sly-live] > .sly-row-live:hover {
+  background: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.sly-live-child {
+  margin-inline-start: 18px;
+  font-size: 0.92em;
+}

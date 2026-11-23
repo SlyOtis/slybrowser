@@ -1,0 +1,53 @@
+{
+  "manifest_version": 2,
+  "name": "slybrowser",
+  "version": "1.0.0",
+  "description": "Serves the slyb cli on ~/.slyb/browser.sock with full control of the browser",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "slybrowser@slytech.no"
+    }
+  },
+  "experiment_apis": {
+    "slybrowser": {
+      "schema": "schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "script": "api.js",
+        "paths": [
+          [
+            "slybrowser"
+          ]
+        ],
+        "events": [
+          "startup"
+        ]
+      }
+    }
+  },
+  "chrome_url_overrides": {
+    "newtab": "welcome.html"
+  },
+  "permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "page.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

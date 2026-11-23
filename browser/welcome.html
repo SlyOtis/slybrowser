@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <title>Welcome</title>
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body>
+    <div class="sky" id="sky"></div>
+    <div class="art" id="art"></div>
+    <div class="collage" id="collage"></div>
+    <div class="grain"></div>
+    <main>
+      <nav class="period" id="period"></nav>
+      <header id="header">
+        <p class="hour" id="hour"></p>
+        <h1 id="greeting"></h1>
+        <p class="tagline"><span id="tagline"></span><span class="caret"></span></p>
+        <a class="wotd" id="wotd" hidden></a>
+      </header>
+      <section id="journey" hidden>
+        <div class="tree" id="tree"><svg class="branches" id="branches" aria-hidden="true"></svg></div>
+        <div class="roots" id="roots">
+          <svg class="branches" id="rootlines" aria-hidden="true"></svg>
+          <div class="root-actions" id="root-actions"></div>
+        </div>
+      </section>
+    </main>
+    <script src="welcome.js"></script>
+  </body>
+</html>
