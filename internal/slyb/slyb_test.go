@@ -2,7 +2,9 @@ package slyb
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -449,5 +451,68 @@ func TestLiveCommands(t *testing.T) {
 	}
 	if getLiveSource("https://github.com/SlyOtis/quillborne") != LiveGitHub || getLiveSource("https://github.com/SlyOtis/quillborne/pulls") != LiveTitle {
 		t.Fatal("only a repository page reads from GitHub")
+	}
+}
+
+func TestRemoteCommands(t *testing.T) {
+	home, err := os.MkdirTemp("/tmp", "slyb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(home) })
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".slyb"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("unix", filepath.Join(home, ".slyb", "browser.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { listener.Close() })
+	methods := make(chan string, 8)
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			var call request
+			_ = json.NewDecoder(conn).Decode(&call)
+			methods <- call.Method
+			_, _ = conn.Write([]byte(`{"result":{"available":true,"host":"127.0.0.1","port":9222,"session":false,"started":"runtime"}}`))
+			conn.Close()
+		}
+	}()
+	command := NewRemoteCommand()
+	for name, want := range map[string]string{"get": "read", "create": "write", "delete": "destructive"} {
+		leaf, _, err := command.Find([]string{name})
+		if err != nil || cli.Access(leaf) != want {
+			t.Fatalf("remote %s access = %q, want %q (%v)", name, cli.Access(leaf), want, err)
+		}
+	}
+	for name, method := range map[string]string{"get": "remote.get", "create": "remote.create", "delete": "remote.delete"} {
+		var out strings.Builder
+		command := NewRemoteCommand()
+		command.SetArgs([]string{name, "--json"})
+		AddFlags(command)
+		command.SetOut(&out)
+		command.SetErr(io.Discard)
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if got := <-methods; got != method {
+			t.Fatalf("remote %s called %s, want %s", name, got, method)
+		}
+		if !strings.Contains(out.String(), `"port": 9222`) || !strings.Contains(out.String(), `"host": "127.0.0.1"`) {
+			t.Fatalf("remote %s printed %s", name, out.String())
+		}
+	}
+	var out strings.Builder
+	command = NewRemoteCommand()
+	command.SetArgs([]string{"create", "extra"})
+	command.SetOut(&out)
+	command.SetErr(io.Discard)
+	if cli.ExitCode(command.Execute()) == cli.ExitOK {
+		t.Fatal("create takes no argument")
 	}
 }

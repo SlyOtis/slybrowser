@@ -1,6 +1,6 @@
 ---
 name: slyb
-description: Controls slybrowser, the user's own build of the Zen browser, through the slyb cli and its mcp server, and keeps its spaces, groups, projects and pages organized the way the user wants. Use when asked to list, open, close, switch or read tabs, organize tabs into groups or by a prompt, build a group, find similar pages, place pages opened from outside with rules, tie folders and projects to spaces, forget pages Claude taught the browser, delete history, change the welcome page and its journey, change spaces, the sidebar or the top apps, search history, or when the user says how they want the browser organized.
+description: Controls slybrowser, the user's own build of the Zen browser, through the slyb cli and its mcp server, and keeps its spaces, groups, projects and pages organized the way the user wants. Use when asked to list, open, close, switch or read tabs, organize tabs into groups or by a prompt, build a group, find similar pages, place pages opened from outside with rules, tie folders and projects to spaces, forget pages Claude taught the browser, delete history, change the welcome page and its journey, change spaces, the sidebar or the top apps, search history, when a page of the user's own Zen is to be driven, scraped or tested with a browser automation tool, or when the user says how they want the browser organized.
 ---
 
 # slyb
@@ -57,9 +57,20 @@ A workspace is Zen's workspace: it has exactly one profile (its container, named
 | `slyb profile get` / `profile update [--name] [--clock 24h\|12h] [--journey-start HH:MM]` | who it greets and when the day starts |
 | `slyb finding get` / `finding create "<text>"` | facts about the user's sites that every organize reads |
 | `slyb organization get` / `organization update` | the organization rules and the pages kept or dismissed |
+| `slyb remote get` / `remote create` / `remote delete` | remote control: get says whether Zen is available, on which loopback port, and whether an automation session is held; create makes the running Zen available on 127.0.0.1 without a restart and reports the port when it already is; delete ends the held session and stops the agent create started |
 | `slyb apps get\|update`, `slyb sidebar get\|update`, `slyb search`, `slyb eval`, `slyb restart` | top apps, sidebar, search, privileged JavaScript, restart |
 
 The one time Arc and Dia import is a repo recipe, not a command: `just import dia|arc [--plan]`.
+
+## Driving a page of Zen with an automation tool
+
+Zen takes one automation session at a time. slyb finds the page and makes Zen available; the automation tool does the driving and knows nothing of slyb.
+
+1. Find the tab with `slyb tab get`, and bring it forward with `slyb tab update <id> --select` when the user asks.
+2. Run `slyb remote create`. It reports the port; already available is a success.
+3. Attach the tool to the tab by its url, with nimon `nimon attach <url>`.
+4. Never quit, relaunch or start a second Zen to get a port: a second Zen is not the user's Zen. When `remote create` is refused, say why and stop.
+5. When the work is done and the user asks, run `slyb remote delete`; it leaves a Zen that was started with a remote port running and only ends its session.
 
 ## Rules for pages opened from outside
 

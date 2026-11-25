@@ -57,6 +57,7 @@ func main() {
 		slyb.NewOrganizationCommand(),
 		slyb.NewEvalCommand(),
 		slyb.NewRestartCommand(),
+		slyb.NewRemoteCommand(),
 		slyb.NewInstallCommand(slybrowser.Browser),
 	)
 	root.AddCommand(cli.SkillCommand("slyb", slybrowser.Skill))

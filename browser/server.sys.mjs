@@ -21,12 +21,16 @@ import { attachWindows, postGroupTab, refreshWindows } from "resource://slybrows
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  RemoteAgent: "chrome://remote/content/components/RemoteAgent.sys.mjs",
   ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   gZenSpaceRoutingManager: "resource:///modules/zen/spacerouting/ZenSpaceRoutingManager.sys.mjs",
 });
 
 const version = "2";
 let server = null;
+let remoteStarted = false;
+const remotePref = "remote.experimental.dynamicstart.enabled";
+const remotePort = 9222;
 
 export function start() {
   if (server) {
@@ -147,6 +151,9 @@ const handlers = {
   "route.delete": deleteRoute,
   "apps.update": putApps,
   eval: postEval,
+  "remote.get": getRemote,
+  "remote.create": postRemote,
+  "remote.delete": deleteRemote,
   restart: postRestart,
 };
 
@@ -666,4 +673,65 @@ function postRestart() {
     Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
   });
   return { restarting: true };
+}
+
+function getRemote() {
+  const agent = lazy.RemoteAgent;
+  const available = agent.running;
+  return {
+    available,
+    host: available ? agent.host : null,
+    port: available ? agent.port : null,
+    session: !!agent.webDriverBiDi?.session,
+    started: available ? (remoteStarted ? "runtime" : "command line") : null,
+  };
+}
+
+async function postRemote() {
+  const agent = lazy.RemoteAgent;
+  if (agent.running) {
+    return getRemote();
+  }
+  if (Services.prefs.getBoolPref("remote.policy.disabled", false)) {
+    throw new Error("remote control is disabled by policy: remote.policy.disabled");
+  }
+  const socket = Cc["@mozilla.org/network/server-socket;1"].createInstance(Ci.nsIServerSocket);
+  try {
+    socket.init(remotePort, true, -1);
+  } catch {
+    throw new Error(`port ${remotePort} on 127.0.0.1 is in use, and a failed bind quits Zen`);
+  }
+  socket.close();
+  const enabled = Services.prefs.getBoolPref(remotePref, false);
+  Services.prefs.setBoolPref(remotePref, true);
+  let port;
+  try {
+    port = await agent.startAtRuntime();
+  } finally {
+    if (!enabled) {
+      Services.prefs.clearUserPref(remotePref);
+    }
+  }
+  if (port === -1) {
+    throw new Error("the remote agent did not start");
+  }
+  remoteStarted = true;
+  if (agent.host !== "127.0.0.1") {
+    await deleteRemote();
+    throw new Error(`the remote agent bound ${agent.host}, not 127.0.0.1, and was stopped`);
+  }
+  return getRemote();
+}
+
+async function deleteRemote() {
+  const agent = lazy.RemoteAgent;
+  const ended = !!agent.webDriverBiDi?.session;
+  agent.webDriverBiDi?.deleteSession();
+  let stopped = false;
+  if (remoteStarted && agent.running) {
+    await agent.stopAtRuntime();
+    stopped = true;
+  }
+  remoteStarted = false;
+  return { ...getRemote(), ended, stopped };
 }

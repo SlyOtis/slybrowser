@@ -367,6 +367,39 @@ func NewRestartCommand() *cobra.Command {
 	}
 }
 
+func NewRemoteCommand() *cobra.Command {
+	remote := &cobra.Command{Use: "remote", Short: "Make the running Zen available for remote control by a browser automation tool"}
+	remote.AddCommand(&cobra.Command{
+		Use:         "get",
+		Short:       "Show whether Zen is available for remote control, on which loopback port, and whether an automation session is held",
+		Example:     "slyb remote get",
+		Args:        cobra.NoArgs,
+		Annotations: map[string]string{cli.AnnotationMCP: "read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, "remote.get", nil)
+		},
+	}, &cobra.Command{
+		Use:         "create",
+		Short:       "Make the running Zen available for remote control on 127.0.0.1 without a restart; already available reports the port",
+		Example:     "slyb remote create",
+		Args:        cobra.NoArgs,
+		Annotations: map[string]string{cli.AnnotationMCP: "write"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, "remote.create", nil)
+		},
+	}, &cobra.Command{
+		Use:         "delete",
+		Short:       "End the held automation session and stop the remote agent this command started",
+		Example:     "slyb remote delete",
+		Args:        cobra.NoArgs,
+		Annotations: map[string]string{cli.AnnotationMCP: "destructive"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, "remote.delete", nil)
+		},
+	})
+	return remote
+}
+
 func NewInstallCommand(browser fs.FS) *cobra.Command {
 	var profile string
 	cmd := &cobra.Command{
