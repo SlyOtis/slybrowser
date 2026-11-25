@@ -465,6 +465,7 @@ function attach(win) {
       }
     },
   });
+  takeSearchKey(win);
   takeSpaceIconMenu(win);
   takeSpaceMenu(win);
   routeExternal(win);
@@ -1905,6 +1906,359 @@ function openSpacePicker(win, workspace, anchor) {
       writePref(spaceIconsPref, icons);
     },
   });
+}
+
+const searchDay = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" });
+const searchTime = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+function takeSearchKey(win) {
+  win.addEventListener(
+    "keydown",
+    event => {
+      if (event.code === "KeyK" && event.metaKey !== event.ctrlKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openSearchDialog(win);
+      }
+    },
+    true
+  );
+}
+
+function openSearchDialog(win) {
+  const doc = win.document;
+  let panel = doc.getElementById("sly-search");
+  if (!panel) {
+    panel = element(doc, "panel", "sly-search", { id: "sly-search", orient: "vertical", noautofocus: "true" });
+    doc.getElementById("mainPopupSet").append(panel);
+  }
+  if (panel.state === "open" || panel.state === "showing") {
+    panel.querySelector(".sly-search-field")?.select();
+    return;
+  }
+  const html = (name, className, text = "") => {
+    const node = doc.createElementNS("http://www.w3.org/1999/xhtml", name);
+    node.className = className;
+    node.textContent = text;
+    return node;
+  };
+  const field = html("input", "sly-search-field");
+  field.placeholder = "Search bookmarks, tabs and history";
+  field.spellcheck = false;
+  const esc = html("button", "sly-search-esc", "Esc");
+  esc.addEventListener("click", () => panel.hidePopup());
+  const chip = html("span", "sly-search-scope");
+  chip.hidden = true;
+  const head = html("div", "sly-search-head");
+  head.append(html("span", "sly-search-head-icon"), chip, field, esc);
+  let scope = null;
+  const putScope = next => {
+    scope = next;
+    chip.hidden = !scope;
+    field.placeholder = scope ? `Search in ${scope.label}` : "Search bookmarks, tabs and history";
+    if (scope) {
+      const remove = html("button", "sly-search-scope-remove", "×");
+      remove.title = "Remove filter";
+      remove.addEventListener("click", () => putScope(null));
+      chip.title = `${scope.kind === "space" ? "Space" : scope.kind === "group" ? "Group" : "Folder"} ${scope.label}`;
+      chip.replaceChildren(html("span", "sly-search-scope-label", scope.label), remove);
+    }
+    field.focus();
+    update().catch(logError);
+  };
+  const list = html("div", "sly-search-list");
+  const foot = html("div", "sly-search-foot");
+  for (const [keys, label] of [[["↑", "↓"], "navigate"], [["↵"], "select"], [["Esc"], "close"]]) {
+    const entry = html("span", "sly-search-keys");
+    entry.append(...keys.map(key => html("kbd", "", key)), label);
+    foot.append(entry);
+  }
+  const box = html("div", "sly-search-box");
+  box.append(head, list, foot);
+  panel.replaceChildren(box);
+  let rows = [];
+  let active = 0;
+  let run = 0;
+  const highlight = index => {
+    rows[active]?.node.classList.remove("sly-search-item-active");
+    active = index;
+    rows[active]?.node.classList.add("sly-search-item-active");
+    rows[active]?.node.scrollIntoView({ block: "nearest" });
+  };
+  const pick = (row, event) => {
+    panel.hidePopup();
+    pickSearchRow(win, row, event);
+  };
+  const render = (groups, terms) => {
+    rows = [];
+    list.replaceChildren();
+    for (const group of groups) {
+      list.append(html("div", "sly-search-group", group.label));
+      for (const row of group.rows) {
+        const index = rows.length;
+        const node = html("div", "sly-search-item");
+        const tile = html("span", "sly-search-item-tile");
+        const icon = html("img", "sly-search-item-icon");
+        icon.src = row.icon;
+        icon.addEventListener("error", () => (icon.src = defaultIcon), { once: true });
+        tile.append(icon);
+        getIconInk(win, row.icon).then(ink => tile.setAttribute("sly-ink", ink), logError);
+        const body = html("span", "sly-search-item-body");
+        body.append(
+          markedText(doc, "sly-search-item-title", row.title || row.url, terms),
+          markedText(doc, "sly-search-item-description", row.url.replace(/^https?:\/\/(www\.)?/, ""), terms)
+        );
+        node.append(tile, body);
+        if (row.crumbs?.length) {
+          const path = html("span", "sly-search-item-path");
+          path.title = row.path;
+          for (const [position, crumb] of row.crumbs.entries()) {
+            if (position) {
+              path.append(html("span", "sly-search-crumb-slash", "/"));
+            }
+            const button = html("button", "sly-search-crumb", crumb.label);
+            button.title = `Only ${crumb.label}`;
+            button.toggleAttribute("sly-current", scope?.key === crumb.scope.key);
+            button.addEventListener("click", event => {
+              event.stopPropagation();
+              putScope(crumb.scope);
+            });
+            path.append(button);
+          }
+          node.append(path);
+        } else if (row.time) {
+          node.append(html("span", "sly-search-item-time", row.time));
+        }
+        node.addEventListener("mouseenter", () => highlight(index));
+        node.addEventListener("click", event => pick(row, event));
+        rows.push({ ...row, node });
+        list.append(node);
+      }
+    }
+    if (!rows.length) {
+      list.append(html("div", "sly-search-state", terms.length || scope ? "No matches" : "Start typing to search"));
+    }
+    active = 0;
+    highlight(0);
+  };
+  const update = async () => {
+    const id = ++run;
+    const terms = field.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const groups = terms.length || scope ? await getSearchGroups(win, terms, scope) : [];
+    if (id === run) {
+      render(groups, terms);
+    }
+  };
+  field.addEventListener("input", () => update().catch(logError));
+  field.addEventListener("keydown", event => {
+    if (event.key === "Backspace" && scope && field.selectionStart === 0 && field.selectionEnd === 0) {
+      event.preventDefault();
+      putScope(null);
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (rows.length) {
+        highlight((active + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
+      }
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (rows[active]) {
+        pick(rows[active], event);
+      }
+    }
+  });
+  render([], []);
+  const width = parseFloat(win.getComputedStyle(box).width) || 0;
+  panel.addEventListener("popupshown", () => field.focus(), { once: true });
+  panel.openPopupAtScreen(Math.round(win.mozInnerScreenX + (win.innerWidth - width) / 2), Math.round(win.mozInnerScreenY + win.innerHeight / 6), false);
+}
+
+const iconInks = new Map();
+
+function getIconInk(win, source) {
+  if (!iconInks.has(source)) {
+    iconInks.set(
+      source,
+      (async () => {
+        const image = new win.Image();
+        image.src = source;
+        await image.decode();
+        const canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+        canvas.width = canvas.height = 16;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, 16, 16);
+        const data = context.getImageData(0, 0, 16, 16).data;
+        let sum = 0;
+        let count = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          if (data[index + 3] >= 128) {
+            sum += luminance([data[index], data[index + 1], data[index + 2]]);
+            count++;
+          }
+        }
+        return count && sum / count < 0.18 ? "dark" : "light";
+      })().catch(() => "light")
+    );
+  }
+  return iconInks.get(source);
+}
+
+function markedText(doc, className, text, terms) {
+  const node = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+  node.className = className;
+  const pattern = new RegExp(`(${terms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  text.split(terms.length ? pattern : /$^/).forEach((part, index) => {
+    if (!part) {
+      return;
+    }
+    if (index % 2) {
+      const mark = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      mark.className = "sly-search-mark";
+      mark.textContent = part;
+      node.append(mark);
+    } else {
+      node.append(part);
+    }
+  });
+  return node;
+}
+
+async function getSearchGroups(win, terms, scope) {
+  const hit = value => terms.every(term => value.toLowerCase().includes(term));
+  const inSection = (label, prefix) => label === prefix || label.startsWith(`${prefix} / `);
+  const spaceCrumb = (id, name) => name && { label: name, scope: { key: `space:${id}`, kind: "space", space: id, label: name } };
+  const groupCrumb = group => ({ label: group.title, scope: { key: `group:${group.id}`, kind: "group", group: group.id, label: group.title } });
+  const sectionCrumbs = (group, label) => {
+    const levels = label.split(" / ");
+    return levels
+      .map((name, index) => ({ label: name, scope: { key: `section:${group.id}:${levels.slice(0, index + 1).join(" / ")}`, kind: "section", group: group.id, section: levels.slice(0, index + 1).join(" / "), label: name } }))
+      .slice(-2);
+  };
+  const bookmarks = [];
+  const marked = new Set();
+  const scoped = new Set();
+  for (const group of State.groups) {
+    const space = win.gZenWorkspaces.getWorkspaceFromId(group.space)?.name;
+    for (const section of group.sections) {
+      const inside =
+        !scope ||
+        (scope.kind === "space" && group.space === scope.space) ||
+        (scope.kind === "group" && group.id === scope.group) ||
+        (scope.kind === "section" && group.id === scope.group && inSection(section.label ?? "", scope.section));
+      for (const page of section.pages) {
+        if (!page.verified || !inside) {
+          continue;
+        }
+        scoped.add(page.url);
+        const path = [space, group.shelf, group.title, section.label].filter(Boolean).join(" / ");
+        if (!marked.has(page.url) && hit(`${page.title} ${page.url} ${path}`)) {
+          marked.add(page.url);
+          bookmarks.push({ title: page.title, url: page.url, icon: `page-icon:${page.url}`, path, crumbs: [spaceCrumb(group.space, space), groupCrumb(group), ...(section.label ? sectionCrumbs(group, section.label) : [])].filter(Boolean), group });
+        }
+      }
+    }
+  }
+  const tabs = [];
+  for (const owner of browserWindows()) {
+    if (isPopup(owner) || !owner.gZenWorkspaces) {
+      continue;
+    }
+    for (const tab of realTabs(owner)) {
+      const url = tabUrl(tab);
+      const id = tab.getAttribute("zen-workspace-id");
+      const group = groupOfTab(tab) ?? groupOfPage(url, id);
+      const section = group?.sections.find(entry => entry.label && entry.pages.some(page => page.url === url));
+      const folder = tab.group?.label;
+      const inside =
+        !scope ||
+        (scope.kind === "space" && id === scope.space) ||
+        (scope.kind === "group" && group?.id === scope.group) ||
+        (scope.kind === "section" && scoped.has(url)) ||
+        (scope.kind === "folder" && folder === scope.folder);
+      if (inside && hit(`${tab.label} ${url}`)) {
+        const space = owner.gZenWorkspaces.getWorkspaceFromId(id)?.name;
+        const crumbs = [
+          spaceCrumb(id, space),
+          ...(group ? [groupCrumb(group), ...(section ? sectionCrumbs(group, section.label) : [])] : [folder && { label: folder, scope: { key: `folder:${folder}`, kind: "folder", folder, label: folder } }]),
+        ].filter(Boolean);
+        tabs.push({ title: tab.label, url, icon: tab.image || `page-icon:${url}`, path: crumbs.map(crumb => crumb.label).join(" / "), crumbs, tab, owner });
+      }
+    }
+  }
+  const limit = scope ? 200 : 16;
+  const groups = [{ label: "Bookmarks", rows: bookmarks.slice(0, limit) }, { label: "Open tabs", rows: tabs.slice(0, scope ? 200 : 12) }];
+  if (scope) {
+    return groups.filter(group => group.rows.length);
+  }
+  const db = await lazy.PlacesUtils.promiseDBConnection();
+  const params = Object.fromEntries(terms.map((term, index) => [`t${index}`, `%${term.replace(/[\\%_]/g, match => "\\" + match)}%`]));
+  const like = column => terms.map((_, index) => `lower(${column}) LIKE :t${index} ESCAPE '\\'`).join(" AND ");
+  const folders = new Map();
+  for (const row of await db.execute("SELECT id, parent, title, guid FROM moz_bookmarks WHERE type = 2")) {
+    folders.set(row.getResultByName("id"), { parent: row.getResultByName("parent"), title: row.getResultByName("title"), guid: row.getResultByName("guid") });
+  }
+  const roots = {
+    [lazy.PlacesUtils.bookmarks.menuGuid]: "Bookmarks Menu",
+    [lazy.PlacesUtils.bookmarks.toolbarGuid]: "Bookmarks Toolbar",
+    [lazy.PlacesUtils.bookmarks.unfiledGuid]: "Other Bookmarks",
+    [lazy.PlacesUtils.bookmarks.mobileGuid]: "Mobile Bookmarks",
+  };
+  const folderPath = id => {
+    const names = [];
+    for (let folder = folders.get(id); folder && folder.guid !== lazy.PlacesUtils.bookmarks.rootGuid; folder = folders.get(folder.parent)) {
+      names.unshift(roots[folder.guid] ?? folder.title ?? "");
+    }
+    return names.filter(Boolean).join(" / ");
+  };
+  const marks = await db.execute(
+    `SELECT b.title AS name, b.parent, h.url, h.title FROM moz_bookmarks b JOIN moz_places h ON h.id = b.fk
+     WHERE b.type = 1 AND ${like("coalesce(b.title, '') || ' ' || coalesce(h.title, '') || ' ' || h.url")}
+     ORDER BY h.frecency DESC LIMIT 12`,
+    params
+  );
+  for (const row of marks) {
+    const url = row.getResultByName("url");
+    if (!marked.has(url)) {
+      marked.add(url);
+      bookmarks.push({ title: row.getResultByName("name") || row.getResultByName("title") || "", url, icon: `page-icon:${url}`, time: folderPath(row.getResultByName("parent")) });
+    }
+  }
+  groups[0].rows = bookmarks.slice(0, limit);
+  const seen = new Set([...tabs.map(row => row.url), ...marked]);
+  const visits = await db.execute(
+    `SELECT url, title, last_visit_date FROM moz_places
+     WHERE last_visit_date IS NOT NULL AND hidden = 0 AND ${like("coalesce(title, '') || ' ' || url")}
+     ORDER BY frecency DESC LIMIT 40`,
+    params
+  );
+  const today = new Date().setHours(0, 0, 0, 0);
+  const days = new Map();
+  [...visits]
+    .map(row => ({ url: row.getResultByName("url"), title: row.getResultByName("title") ?? "", date: new Date(row.getResultByName("last_visit_date") / 1000) }))
+    .filter(row => !seen.has(row.url))
+    .sort((a, b) => b.date - a.date)
+    .forEach(row => {
+      const day = new Date(row.date).setHours(0, 0, 0, 0);
+      const ago = Math.round((today - day) / 86400000);
+      const label = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : searchDay.format(row.date);
+      days.set(label, [...(days.get(label) ?? []), { title: row.title, url: row.url, icon: `page-icon:${row.url}`, time: searchTime.format(row.date) }]);
+    });
+  return [...groups, ...[...days].map(([label, rows]) => ({ label, rows }))].filter(group => group.rows.length);
+}
+
+function pickSearchRow(win, row, event) {
+  if (row.group) {
+    postGroupTab(win, row.group, row.url).catch(logError);
+    return;
+  }
+  if (!row.tab) {
+    win.openTrustedLinkIn(row.url, event.metaKey || event.ctrlKey ? "tab" : "current");
+    return;
+  }
+  const space = row.tab.getAttribute("zen-workspace-id");
+  row.owner.focus();
+  Promise.resolve(!space || row.owner.gZenWorkspaces.activeWorkspace === space || row.owner.gZenWorkspaces.changeWorkspaceWithID(space))
+    .then(() => (row.owner.gBrowser.selectedTab = row.tab))
+    .catch(logError);
 }
 
 function takeSpaceIconMenu(win) {
