@@ -1,5 +1,5 @@
 import { State, logError, paths, runSlyb as runSlybCommand } from "resource://slybrowser/state.sys.mjs";
-import { browserWindows, dimmedColors, getSpaceContext, isPopup, loginColors, loginContext, postOpenPage, putSpaceLook, putTabContext, realTabs, tabLogin, tabUrl, themeFromColors, themeOpacity } from "resource://slybrowser/tabs.sys.mjs";
+import { browserWindows, dimmedColors, getSpaceContext, isPopup, loginColors, loginContext, postOpenPage, putSpaceLook, putTabContext, realTabs, tabId, tabLogin, tabUrl, themeFromColors, themeOpacity } from "resource://slybrowser/tabs.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -346,6 +346,10 @@ function attach(win) {
   win.addEventListener(
     "TabClose",
     event => {
+      const next = event.target.selected ? landingTab(win, event.target) : null;
+      if (next) {
+        win.gBrowser.setSuccessor(event.target, next);
+      }
       const order = looseOrder.get(event.target.getAttribute("zen-workspace-id"));
       if (order?.has(event.target)) {
         lazy.SessionStore.setCustomTabValue(event.target, "sly-order", `${order.id}:${order.get(event.target)}`);
@@ -427,8 +431,10 @@ function attach(win) {
     win.addEventListener(event, noteFocus);
   }
   win.setInterval(() => recordFocus(win, true), 60000);
-  win.setInterval(() => syncLive(win, null), 60000);
-  win.addEventListener("TabSelect", () => syncLive(win, win.gBrowser.selectedTab));
+  win.setInterval(() => postEvent("interval", {}), 60000);
+  win.addEventListener("TabSelect", () => postEvent("tab.selected", tabEvent(win.gBrowser.selectedTab)));
+  win.addEventListener("TabOpen", event => win.setTimeout(() => event.target.isConnected && postEvent("tab.opened", tabEvent(event.target)), 0));
+  win.addEventListener("TabClose", event => postEvent("tab.closed", tabEvent(event.target)));
   win.gBrowser.addTabsProgressListener({
     onLocationChange(browser, webProgress) {
       if (webProgress.isTopLevel) {
@@ -440,8 +446,6 @@ function attach(win) {
           const from = groupOfTab(opener);
           if (from && !moved.hasAttribute("sly-page") && !moved.hasAttribute("sly-group")) {
             tagTab(moved, "sly-group", from.id);
-          } else if (!from) {
-            groupLoose(win, opener, moved).catch(logError);
           }
         }
         if (moved && !moved.hasAttribute("sly-page") && /^https?:/.test(address)) {
@@ -462,6 +466,12 @@ function attach(win) {
           applyTheme(win).catch(logError);
         }
         schedule();
+      }
+    },
+    onStateChange(browser, webProgress, request, flags) {
+      const tab = win.gBrowser.getTabForBrowser(browser);
+      if (tab && webProgress.isTopLevel && flags & Ci.nsIWebProgressListener.STATE_STOP && flags & Ci.nsIWebProgressListener.STATE_IS_WINDOW && /^https?:/.test(tabUrl(tab))) {
+        postEvent("page.loaded", tabEvent(tab));
       }
     },
   });
@@ -1474,7 +1484,6 @@ function treeCount(node) {
 }
 
 const liveFolded = new Set();
-const liveSyncing = new Set();
 
 function liveCount(live, tab) {
   if (live.source !== "title") {
@@ -1506,19 +1515,6 @@ function renderLiveChildren(win, space, card, page, stats, openByUrl) {
     row.classList.add("sly-live-child");
     return row;
   });
-}
-
-function syncLive(win, tab) {
-  const now = Date.now();
-  const age = item => now - (Date.parse(item.synced_at ?? "") || 0);
-  const opened = tab ? State.liveItem(tabUrl(tab) ?? "") : null;
-  const due = State.live.filter(item => item.source === "github" && !liveSyncing.has(item.url) && (tab ? opened?.url === item.url && age(item) > 30000 : item.every > 0 && age(item) >= item.every * 60000));
-  for (const item of due) {
-    liveSyncing.add(item.url);
-    runSlybCommand(["live", "sync", item.url])
-      .catch(logError)
-      .finally(() => liveSyncing.delete(item.url));
-  }
 }
 
 function renderTree(container, node, depth, context) {
@@ -2287,7 +2283,7 @@ async function placeExternal(win, first, url) {
   let group = groupOfPage(url, win.gZenWorkspaces.activeWorkspace);
   let space = group?.space ?? null;
   if (!group) {
-    const match = await runSlybCommand(["rule", "match", url]);
+    const match = (await postEvent("page.outside", { url, title: tab.label }))?.effects?.find(effect => effect.kind === "place");
     group = match?.group ? State.groups.find(entry => entry.id === match.group) : null;
     space = match?.space || group?.space || domainSpace(url);
     if (!space) {
@@ -2300,7 +2296,7 @@ async function placeExternal(win, first, url) {
           section = { id: Math.random().toString(16).slice(2, 14), label: match.section, kind: "section", pages: [] };
           changed.sections.push(section);
         }
-        section.pages.push({ url, title: tab.label, source: "rule", rule: match.id, rule_name: match.rule, verified: false, added_at: new Date().toISOString() });
+        section.pages.push({ url, title: tab.label, source: "rule", rule: match.action, rule_name: match.name, verified: false, added_at: new Date().toISOString() });
       });
     }
   }
@@ -2645,6 +2641,8 @@ function aiMenu(win, title, key, scope, extra = () => []) {
       };
       const projectItems = [forget, remove("Remove from sidebar", "sidebar", "Hide the project and delete its history"), remove("Remove from Claude and sidebar", "both", "Forget it in Claude, hide it and delete its history")];
       const group = scope[0] === "--group" && !scope.includes("--section") ? State.groups.find(entry => entry.id === scope[1]) : null;
+      const flows = group ? element(doc, "menuitem", "", { label: "Actions…", tooltiptext: `The actions that run for ${title}: what it watches, scrapes, groups and orders` }) : null;
+      flows?.addEventListener("command", () => openActions(win, "group", group.id, group.title));
       const separate = group && !group.login ? element(doc, "menuitem", "", { label: "Separate login…", tooltiptext: "Give this group a login of its own, so its pages keep their own sessions" }) : null;
       separate?.addEventListener("command", () =>
         openPromptDialog(win, { title: `Separate login for ${group.title}`, hint: "Its pages open in a container of their own with this name, so you can stay signed in to another account here.", placeholder: "Such as Claude work", action: "Separate", value: group.title }, text => runSlyb(win, ["group", "update", group.id, "--login", text], button, key))
@@ -2670,7 +2668,7 @@ function aiMenu(win, title, key, scope, extra = () => []) {
         return item;
       };
       const dropItems = group ? [drop("Delete group…", "Delete the group and its pages, and close its open tabs")] : [];
-      parts.push([header("Assistant"), ...actions], project ? [header("Project"), ...projectItems] : [header(scope.includes("--section") ? "Section" : "Group"), rules, ...(separate ? [separate] : []), forget, ...dropItems]);
+      parts.push([header("Assistant"), ...actions], project ? [header("Project"), ...projectItems] : [header(scope.includes("--section") ? "Section" : "Group"), rules, ...(flows ? [flows] : []), ...(separate ? [separate] : []), forget, ...dropItems]);
       if (group?.login) {
         parts.push(containerItems(win, group, button, key));
       }
@@ -2805,6 +2803,7 @@ function openSpaceMenu(win, workspace, sidebar, anchor) {
     ),
     zenRow("Theme…", "context_zenChangeWorkspaceTheme", "Change the theme of the workspace"),
     row("Rules…", "Rules that place pages opened from outside the browser in this workspace", () => openRulesDialog(win, ["--workspace", space], name)),
+    row("Actions…", "The actions that run for this workspace: what it watches, scrapes, groups and orders", () => openActions(win, "workspace", space, name)),
     row("Remove from Claude", "Forget the pages of this workspace from what Claude taught the browser, everywhere", () => runSlyb(win, ["forgotten", "create", "--workspace", space], anchor, `space:${space}`)),
     element(doc, "toolbarbutton", "sly-menu-row", { label: profile ? `Profile ${profile}, its logins` : "No profile yet", disabled: "true" }),
     row(
@@ -3502,6 +3501,7 @@ function sidebarSpaceRows(win, sidebar, workspace, anchor, row, header) {
     row("Icon…", "Change the icon of this space", () =>
       openIconPicker(win, { title: sidebar.name, origins: workspace?._slyOrigins ?? [], current: sidebar.icon, anchor, choose: value => State.changeSpace(sidebar.id, space => (space.icon = value)) })
     ),
+    row("Actions…", "The actions that run for this space: what it watches, scrapes, groups and orders", () => openActions(win, "space", sidebar.id, sidebar.name)),
     row("New space…", "Add another space to this workspace", () =>
       openPromptDialog(win, { title: "New space", hint: "A space holds groups of its own in the sidebar of this workspace.", placeholder: "Such as Clients", action: "Create space" }, text => {
         State.spaces.push({ id: Math.random().toString(16).slice(2, 14), name: text, icon: "", workspace: sidebar.workspace, created_at: new Date().toISOString(), history: [], discarded: [] });
@@ -3626,6 +3626,13 @@ function landingGroup(win) {
   return win._slyLand ? State.groups.find(group => group.id === win._slyLand) ?? null : groupOfTab(win.gBrowser.selectedTab);
 }
 
+function landingTab(win, closed) {
+  const workspace = win.document.getElementById(closed.getAttribute("zen-workspace-id"));
+  const group = landingGroup(win);
+  const rows = scope => [...(workspace?.querySelectorAll(`${scope} .sly-card-tab`) ?? [])].map(row => row._slyTab).filter(tab => tab && tab !== closed && tab.isConnected && !tab.closing);
+  return (group ? rows(`:scope > .sly-cards .sly-card[data-key="group:${group.id}"]`).find(tab => !tab.hasAttribute("pending")) : null) ?? rows(":scope > .sly-open")[0] ?? null;
+}
+
 function markLanding(win) {
   const key = `group:${landingGroup(win)?.id}`;
   for (const card of win.document.querySelectorAll(".sly-card[data-key^=\"group:\"]")) {
@@ -3652,7 +3659,7 @@ async function unloadTab(win, tab) {
     return;
   }
   if (tab.selected) {
-    win.gBrowser.selectedTab = win.gBrowser._findTabToBlurTo(tab, [tab]);
+    win.gBrowser.selectedTab = landingTab(win, tab) ?? win.gBrowser._findTabToBlurTo(tab, [tab]);
   }
   if (await win.gBrowser.explicitUnloadTabs([tab])) {
     tab.removeAttribute("discarded");
@@ -3723,71 +3730,31 @@ function openAppMenu(win, app, event) {
   menu.openPopupAtScreen(event.screenX, event.screenY, true);
 }
 
-function siteOf(url) {
-  const host = URL.parse(url)?.hostname ?? "";
+function tabEvent(tab) {
+  const group = groupOfTab(tab);
+  return { id: tabId(tab), url: tabUrl(tab), title: tab.label, workspace: tab.getAttribute("zen-workspace-id") ?? "", space: group?.space_id ?? "", group: group?.id ?? "" };
+}
+
+const eventsRunning = new Set();
+
+async function postEvent(trigger, data) {
+  const bare = address => (address ?? "").replace(/\/+$/, "");
+  const key = `${trigger} ${data.url ?? ""}`;
+  if (eventsRunning.has(key) || !(State.triggers[trigger] ?? []).some(entry => !entry.url || bare(entry.url) === bare(data.url))) {
+    return null;
+  }
+  eventsRunning.add(key);
   try {
-    return Services.eTLD.getBaseDomainFromHost(host);
-  } catch {
-    return host;
+    return await runSlybCommand(["action", "run", trigger, "--data", JSON.stringify(data)]);
+  } catch (error) {
+    logError(error);
+    return null;
+  } finally {
+    eventsRunning.delete(key);
   }
 }
 
-function isLoose(tab) {
-  const url = tabUrl(tab);
-  return (
-    /^https?:/.test(url) &&
-    !tab.pinned &&
-    !tab.hasAttribute("zen-essential") &&
-    !tab.hasAttribute("sly-page") &&
-    !tab.hasAttribute("sly-group") &&
-    !pinnedApps(tab.getAttribute("zen-workspace-id")).some(app => app.url === url) &&
-    !State.groups.some(group => group.sections.some(section => section.pages.some(page => page.url === url)))
-  );
-}
-
-async function groupLoose(win, opener, tab) {
-  const from = tabUrl(opener);
-  const to = tabUrl(tab);
-  if (!opener.isConnected || !isLoose(opener) || !/^https?:/.test(to) || siteOf(from) === siteOf(to)) {
-    return;
-  }
-  const workspace = opener.getAttribute("zen-workspace-id");
-  await State.loadGroups();
-  let space = State.spaces.find(entry => entry.workspace === workspace && entry.name === "Loose");
-  if (!space) {
-    space = { id: Math.random().toString(16).slice(2, 14), name: "Loose", icon: "", workspace, created_at: new Date().toISOString(), history: [], discarded: [] };
-    State.spaces.push(space);
-  }
-  const at = new Date().toISOString();
-  const group = {
-    id: Math.random().toString(16).slice(2, 14),
-    title: siteOf(from).split(".")[0].replace(/^./, letter => letter.toUpperCase()),
-    shelf: "",
-    icon: "",
-    color: "",
-    space: workspace,
-    claude: false,
-    sort: "relevance",
-    space_id: space.id,
-    created_at: at,
-    sections: [
-      {
-        id: Math.random().toString(16).slice(2, 14),
-        label: "",
-        kind: "section",
-        pages: [
-          { url: from, title: opener.label, source: "you", verified: true, added_at: at },
-          { url: to, title: tab.label, source: "you", verified: true, added_at: at },
-        ],
-      },
-    ],
-  };
-  State.groups.push(group);
-  space.history.push({ at, url: to, title: tab.label, group: group.title, reason: `opened from ${siteOf(from)}` });
-  await State.saveGroups();
-  for (const [member, url] of [[opener, from], [tab, to]]) {
-    tagTab(member, "sly-page", url);
-  }
-  opened.add(`group:${group.id}`);
-  renderCards(win);
+function openActions(win, kind, id, title) {
+  const query = new URLSearchParams({ kind, id, title });
+  win.openTrustedLinkIn(`${State.pages}actions.html?${query}`, "tab");
 }

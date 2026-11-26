@@ -338,7 +338,7 @@ func NewSpaceBuildCommand() *cobra.Command {
 			if err := PutGroups(ctx, store); err != nil {
 				return err
 			}
-			if err := PutRules(rules); err != nil {
+			if err := PutRules(cmd.Context(), rules); err != nil {
 				return err
 			}
 			return printValue(cmd, result)

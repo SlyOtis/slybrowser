@@ -97,6 +97,20 @@
             "type": "integer"
           }
         ]
+      },
+      {
+        "name": "postAction",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "args",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
       }
     ]
   }

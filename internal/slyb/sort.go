@@ -382,6 +382,17 @@ func postSortSpace(cmd *cobra.Command, index ProjectIndex, workspace, instructio
 			return err
 		}
 	}
+	if pageURL == "" {
+		unplaced := []any{}
+		for _, item := range byID {
+			if item.Tab {
+				unplaced = append(unplaced, map[string]any{"url": item.URL, "title": item.Title})
+			}
+		}
+		if _, err := PostTrigger(ctx, TriggerCall{Trigger: TriggerOrganizeDone, Data: map[string]any{"workspace": workspace, "summary": result.Summary, "placed": len(result.Placed), "discarded": len(result.Discarded), "unplaced": unplaced}}); err != nil {
+			return err
+		}
+	}
 	return printValue(cmd, result)
 }
 

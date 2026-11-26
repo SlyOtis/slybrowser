@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <title>Actions</title>
+    <link rel="stylesheet" href="actions.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <button class="icon-btn" id="palette-toggle" title="Catalogue" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM9 5v14" /></svg>
+      </button>
+      <div class="crumbs">
+        <span class="crumb-scope" id="scope"></span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-title">Actions</span>
+      </div>
+      <nav class="tabs" id="tabs"></nav>
+      <button class="btn btn-text" id="new-action">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+        <span>New action</span>
+      </button>
+      <span class="grow"></span>
+      <button class="btn btn-text" id="status" hidden></button>
+      <button class="btn btn-primary" id="run" hidden>
+        <svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z" /></svg>
+        <span>Run</span>
+      </button>
+      <button class="icon-btn" id="side-toggle" title="Runs" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+      </button>
+      <button class="icon-btn icon-btn-danger" id="delete-action" title="Delete action" hidden>
+        <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>
+      </button>
+    </header>
+
+    <p class="problems" id="problems" hidden></p>
+
+    <main class="frame" id="frame" data-palette="open" data-side="closed">
+      <aside class="palette" id="palette">
+        <input class="search" id="search" type="search" placeholder="Search" />
+        <div id="palette-groups"></div>
+      </aside>
+
+      <section class="canvas" id="canvas">
+        <div class="world" id="world">
+          <svg class="edges" id="edges"></svg>
+          <div class="nodes" id="nodes"></div>
+        </div>
+        <p class="empty" id="empty" hidden>Pick a trigger from the catalogue to start the action.</p>
+      </section>
+
+      <aside class="side" id="side">
+        <nav class="side-tabs">
+          <button class="side-tab" data-view="result" aria-selected="true">Test result</button>
+          <button class="side-tab" data-view="runs" aria-selected="false">Runs</button>
+        </nav>
+        <div class="side-body" id="side-body"></div>
+      </aside>
+    </main>
+
+    <dialog class="dialog" id="dialog">
+      <form method="dialog" class="dialog-form" id="dialog-form">
+        <h2 class="dialog-title" id="dialog-title"></h2>
+        <p class="dialog-hint" id="dialog-hint"></p>
+        <div class="dialog-fields" id="dialog-fields"></div>
+        <p class="dialog-error" id="dialog-error" hidden></p>
+        <footer class="dialog-actions">
+          <button class="btn btn-text" value="cancel" formnovalidate>Cancel</button>
+          <button class="btn btn-primary" id="dialog-submit" value="ok"></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <menu class="menu" id="menu" hidden></menu>
+
+    <script src="actions.js"></script>
+  </body>
+</html>

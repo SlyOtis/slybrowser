@@ -213,7 +213,7 @@ func NewSuggestionCommand() *cobra.Command {
 					return cli.Rejected("there is no space named "+entry.Space, "make the space first")
 				}
 				rules.Rules = append(rules.Rules, Rule{ID: newID(), Name: entry.Name, Scope: ScopeSpace, Space: target, Script: entry.Script, CreatedAt: now()})
-				if err := PutRules(rules); err != nil {
+				if err := PutRules(cmd.Context(), rules); err != nil {
 					return err
 				}
 				entry.Applied = true

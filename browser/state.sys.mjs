@@ -13,7 +13,7 @@ export const paths = {
   focus: PathUtils.join(home, "focus"),
   learned: PathUtils.join(home, "learned.jsonl"),
   icons: PathUtils.join(home, "icons.json"),
-  rules: PathUtils.join(home, "rules.json"),
+  triggers: PathUtils.join(home, "actions", "triggers.json"),
   pages: PathUtils.join(home, "pages.json"),
   spaces: PathUtils.join(home, "spaces.json"),
   live: PathUtils.join(home, "live.json"),
@@ -36,12 +36,15 @@ export const State = {
   projects: [],
   settings: {},
   live: [],
+  triggers: {},
+  pages: "",
 
   async load() {
     this.settings = await readJSON(paths.settings, {});
     await this.loadGroups();
     await this.loadProjects();
     await this.loadLive();
+    await this.loadTriggers();
   },
 
   async loadGroups() {
@@ -53,6 +56,10 @@ export const State = {
 
   async loadLive() {
     this.live = (await readJSON(paths.live, { items: [] })).items ?? [];
+  },
+
+  async loadTriggers() {
+    this.triggers = (await readJSON(paths.triggers, { triggers: {} })).triggers ?? {};
   },
 
   liveItem(url) {

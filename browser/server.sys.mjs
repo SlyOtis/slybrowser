@@ -131,6 +131,7 @@ const handlers = {
   "folder.get": getFolders,
   "groups.reload": putGroups,
   "live.reload": putLive,
+  "actions.reload": putActions,
   "group.open": postGroupOpen,
   "workspace.get": getWorkspaces,
   "workspace.create": postWorkspace,
@@ -553,6 +554,11 @@ async function postImportSpace({ name, icon, tabs = [], loose = [] }) {
   const pinned = fresh(tabs).map(page => postLazyTab(win, page, space.uuid));
   const unpinned = fresh(loose).map(page => postLazyTab(win, page, space.uuid, { pinned: false }));
   return { space: space.uuid, name: space.name, pinned: pinned.length, loose: unpinned.length, folders: 0 };
+}
+
+async function putActions() {
+  await State.loadTriggers();
+  return { triggers: Object.keys(State.triggers).length };
 }
 
 async function putLive() {

@@ -376,7 +376,7 @@ func TestGroupUpdateSpace(t *testing.T) {
 
 func TestRuleUpdate(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := PutRules(RuleStore{Rules: []Rule{{ID: "r1", Name: "old", Scope: ScopeSpace, Space: "s", Script: "result = false"}}}); err != nil {
+	if err := PutRules(t.Context(), RuleStore{Rules: []Rule{{ID: "r1", Name: "old", Scope: ScopeSpace, Space: "s", Script: "result = false"}}}); err != nil {
 		t.Fatal(err)
 	}
 	run := func(args ...string) error {
@@ -514,5 +514,209 @@ func TestRemoteCommands(t *testing.T) {
 	command.SetErr(io.Discard)
 	if cli.ExitCode(command.Execute()) == cli.ExitOK {
 		t.Fatal("create takes no argument")
+	}
+}
+
+func TestActionCommands(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	run := func(args ...string) (string, error) {
+		var out strings.Builder
+		command := NewActionCommand()
+		command.SetArgs(append(args, "--json"))
+		AddFlags(command)
+		command.SetOut(&out)
+		command.SetErr(io.Discard)
+		err := command.Execute()
+		return out.String(), err
+	}
+	read := func(out string, into any) {
+		t.Helper()
+		if err := json.Unmarshal([]byte(out), into); err != nil {
+			t.Fatalf("%v in %s", err, out)
+		}
+	}
+	out, err := run("create", "Board", "--workspace", "w1", "--trigger", "page.loaded")
+	if err != nil {
+		t.Fatal(err)
+	}
+	made := Action{}
+	read(out, &made)
+	if made.Scope.Kind != ScopeWorkspace || made.Scope.ID != "w1" || len(made.Nodes) != 1 || made.Nodes[0].Node != NodeTrigger {
+		t.Fatalf("made = %+v", made)
+	}
+	if _, err := run("create", "Both", "--workspace", "w1", "--group", "g1"); cli.ExitCode(err) != cli.ExitRejected {
+		t.Fatalf("two scopes must be rejected, got %v", err)
+	}
+	if _, err := run("node", "create", made.ID, "--kind", "condition", "--code", "return ="); cli.ExitCode(err) != cli.ExitRejected {
+		t.Fatalf("code that does not compile must be rejected, got %v", err)
+	}
+	if _, err := run("node", "create", made.ID, "--node", "missing"); cli.ExitCode(err) != cli.ExitRejected {
+		t.Fatalf("an unknown catalogue node must be rejected, got %v", err)
+	}
+	out, err = run("node", "create", made.ID, "--kind", "condition", "--name", "Is a board", "--code", `return text.contains(data.path, "/board")`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	board := ActionNode{}
+	read(out, &board)
+	out, err = run("node", "create", made.ID, "--node", NodeEventEmit, "--input", `{"name":"board.seen"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emits := ActionNode{}
+	read(out, &emits)
+	if _, err := run("link", "create", made.ID, made.Nodes[0].ID, board.ID); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run("link", "create", made.ID, board.ID, emits.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := ActionLink{}
+	read(out, &link)
+	if link.Type != "true" {
+		t.Fatalf("a link out of a condition is true by default, got %q", link.Type)
+	}
+	if _, err := run("link", "create", made.ID, emits.ID, board.ID, "--type", "object"); cli.ExitCode(err) != cli.ExitRejected {
+		t.Fatalf("a link that closes a cycle must be rejected, got %v", err)
+	}
+	out, err = run("create", "Heard", "--trigger", "board.seen")
+	if err != nil {
+		t.Fatal(err)
+	}
+	heard := Action{}
+	read(out, &heard)
+	out, err = run("node", "create", heard.ID, "--kind", "transformer", "--code", `return data.url`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	said := ActionNode{}
+	read(out, &said)
+	if _, err := run("link", "create", heard.ID, heard.Nodes[0].ID, said.ID); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run("run", "page.loaded", "--data", `{"url":"https://a.example.test/board/7","workspace":"w1"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := TriggerResult{}
+	read(out, &result)
+	if len(result.Runs) != 2 || result.Runs[0].Status != RunSucceeded || result.Runs[1].Action != heard.ID || len(result.Effects) != 1 || result.Effects[0]["kind"] != EffectEmit {
+		t.Fatalf("result = %s", out)
+	}
+	if result.Runs[1].Nodes[0].Result == nil && result.Runs[1].Nodes[1].Result == nil {
+		t.Fatalf("the emitted event carried no data: %s", out)
+	}
+	out, _ = run("run", "page.loaded", "--data", `{"url":"https://a.example.test/other","workspace":"w1"}`)
+	read(out, &result)
+	if len(result.Runs) != 1 || len(result.Effects) != 0 {
+		t.Fatalf("a page that is no board must not emit: %s", out)
+	}
+	out, _ = run("run", "page.loaded", "--data", `{"url":"https://a.example.test/board/7","workspace":"w2"}`)
+	read(out, &result)
+	if len(result.Runs) != 0 {
+		t.Fatalf("an action of another workspace must not run: %s", out)
+	}
+	out, _ = run("run", "page.loaded", "--dry", "--data", `{"url":"https://a.example.test/board/7","workspace":"w1"}`)
+	read(out, &result)
+	if len(result.Runs) != 1 || len(result.Effects) != 0 {
+		t.Fatalf("a dry run must carry out no effect: %s", out)
+	}
+	if runs, _ := GetActionRuns(made.ID); len(runs) != 2 {
+		t.Fatalf("two runs are recorded, a dry run is not: %d", len(runs))
+	}
+	if _, err := run("update", made.ID, "--status", "paused"); err != nil {
+		t.Fatal(err)
+	}
+	out, _ = run("run", "page.loaded", "--data", `{"url":"https://a.example.test/board/7","workspace":"w1"}`)
+	read(out, &result)
+	if len(result.Runs) != 0 {
+		t.Fatalf("a paused action must not run: %s", out)
+	}
+	if _, err := run("node", "delete", made.ID, board.ID); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := GetAction(made.ID); len(left.Nodes) != 2 || len(left.Links) != 0 || len(left.Problems) == 0 {
+		t.Fatalf("left = %+v", left)
+	}
+	if _, err := run("delete", made.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run("get", made.ID); cli.ExitCode(err) != cli.ExitRejected {
+		t.Fatalf("a deleted action must be gone, got %v", err)
+	}
+}
+
+func TestActionImport(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	rules := RuleStore{Rules: []Rule{
+		{ID: "r1", Name: "acme", Scope: ScopeSpace, Space: "w1", Script: `text := import("text"); result = text.has_suffix(host, "example.test")`, CreatedAt: "2026-01-01T00:00:00Z"},
+		{ID: "r2", Name: "git", Scope: ScopeGroup, Space: "w1", Group: "g1", Script: "text := import(\"text\")\nresult = host == \"git.example.test\"", CreatedAt: "2026-01-02T00:00:00Z"},
+	}}
+	if err := writeJSONFile(filepath.Join(home, ".slyb", "rules.json"), rules); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSONFile(filepath.Join(home, ".slyb", "groups.json"), GroupStore{Groups: []Group{{ID: "g1", Title: "Git", Space: "w1", SpaceID: "s1", Sections: []GroupSection{}}}, Spaces: []Space{{ID: "s1", Name: "Work", Workspace: "w1"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSONFile(filepath.Join(home, ".slyb", "live.json"), LiveStore{Items: []LiveItem{{URL: "https://mail.example.test/inbox", Source: LiveTitle, Every: 5}}}); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := PostActionImport(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	actions, err := GetActions()
+	if err != nil || len(actions) != 4 {
+		t.Fatalf("two rules, one live item and the loose action make four actions, got %d, %v", len(actions), err)
+	}
+	for _, action := range actions {
+		if len(action.Problems) != 0 {
+			t.Fatalf("%s has problems: %v", action.Name, action.Problems)
+		}
+	}
+	stored, err := GetRules()
+	if err != nil || len(stored.Rules) != 2 || stored.Rules[1].ID != "r2" || stored.Rules[1].Space != "w1" || stored.Rules[1].Group != "g1" || stored.Rules[1].Script != `result = host == "git.example.test"` {
+		t.Fatalf("rules = %+v, %v", stored, err)
+	}
+	result, err := PostTrigger(t.Context(), TriggerCall{Trigger: TriggerPageOutside, Data: map[string]any{"url": "https://git.example.test/platform", "title": "Platform"}})
+	if err != nil || len(result.Effects) != 2 || result.Effects[0]["group"] != "g1" || result.Effects[0]["space"] != "w1" || result.Effects[1]["scope"] != ScopeSpace {
+		t.Fatalf("the group rule places first, then the workspace rule: %+v, %v", result.Effects, err)
+	}
+	match, err := MatchRules(t.Context(), stored, Page{URL: "https://git.example.test/platform"})
+	if err != nil || match.ID != "r2" || match.Group != "g1" {
+		t.Fatalf("match = %+v, %v", match, err)
+	}
+	organized, err := PostTrigger(t.Context(), TriggerCall{Trigger: TriggerOrganizeDone, Data: map[string]any{"workspace": "w1", "unplaced": []any{
+		map[string]any{"url": "https://www.reddit.com/r/a", "title": "A"},
+		map[string]any{"url": "https://www.reddit.com/r/b", "title": "B"},
+		map[string]any{"url": "https://clay.global/", "title": "Clay"},
+	}}})
+	if err != nil || len(organized.Runs) != 1 || organized.Runs[0].Status != RunSucceeded {
+		t.Fatalf("organized = %+v, %v", organized, err)
+	}
+	groups, _ := GetGroups()
+	loose := groups.SpaceNamed("w1", "Loose")
+	if loose == nil {
+		t.Fatal("the Loose space was not made")
+	}
+	titles := map[string]int{}
+	for _, group := range groups.Groups {
+		if group.SpaceID == loose.ID {
+			titles[group.Title] = len(group.Sections[0].Pages)
+		}
+	}
+	if titles["Reddit"] != 2 || titles["Clay"] != 1 || len(titles) != 2 {
+		t.Fatalf("loose groups = %v", titles)
+	}
+	nothing, err := PostTrigger(t.Context(), TriggerCall{Trigger: TriggerOrganizeDone, Data: map[string]any{"workspace": "w1", "unplaced": []any{}}})
+	if err != nil || len(nothing.Effects) != 0 {
+		t.Fatalf("nothing left makes no group: %+v, %v", nothing, err)
+	}
+	timed, err := PostTrigger(t.Context(), TriggerCall{Trigger: TriggerInterval})
+	if err != nil || len(timed.Runs) != 0 {
+		t.Fatalf("a title item never runs on the interval: %+v, %v", timed, err)
 	}
 }

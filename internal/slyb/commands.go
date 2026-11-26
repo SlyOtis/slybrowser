@@ -422,6 +422,9 @@ func NewInstallCommand(browser fs.FS) *cobra.Command {
 					return err
 				}
 			}
+			if err := PostActionImport(); err != nil {
+				return err
+			}
 			installed, err := PostInstall(profile, browser)
 			if err != nil {
 				return err

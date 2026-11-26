@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nimling/nimbody/cli"
+	"github.com/nimling/nimflow/graph"
 	"github.com/spf13/cobra"
 )
 
@@ -95,6 +97,9 @@ func getLiveSource(url string) string {
 }
 
 func getGitHubItems(ctx context.Context, repo, kind string) ([]LiveChild, error) {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return nil, fmt.Errorf("gh is not installed")
+	}
 	fields := "number,title,url"
 	if kind == "pr" {
 		fields += ",isDraft"
@@ -122,29 +127,80 @@ func getGitHubItems(ctx context.Context, repo, kind string) ([]LiveChild, error)
 	return children, nil
 }
 
-func putLiveItem(ctx context.Context, item *LiveItem) {
-	item.SyncedAt = now()
+func (item LiveItem) action() Action {
+	timer, shown := uuid.NewString(), uuid.NewString()
+	action := Action{ID: newID(), Name: "Live · " + trimURL(item.URL), Status: ActionActive, CreatedAt: now()}
+	object := string(graph.LinkTypeObject)
 	if item.Source != LiveGitHub {
-		return
+		action.Nodes = []ActionNode{
+			{ID: timer, Node: NodeTrigger, Name: "On an interval", Input: map[string]any{"trigger": TriggerInterval, "every": float64(0)}, Position: &NodePosition{X: 0, Y: 0}},
+			{ID: shown, Node: NodeLiveTitle, Name: "Count from the tab title", Input: map[string]any{"url": item.URL}, Position: &NodePosition{X: 280, Y: 0}},
+		}
+		action.Links = []ActionLink{{ID: uuid.NewString(), From: timer, To: shown, Type: object}}
+		return action
 	}
 	match := githubRepo.FindStringSubmatch(item.URL)
-	repo := match[1] + "/" + match[2]
-	if _, err := exec.LookPath("gh"); err != nil {
-		item.Error = "gh is not installed"
-		return
+	focused, items := uuid.NewString(), uuid.NewString()
+	action.Nodes = []ActionNode{
+		{ID: timer, Node: NodeTrigger, Name: "On an interval", Input: map[string]any{"trigger": TriggerInterval, "every": float64(item.Every)}, Position: &NodePosition{X: 0, Y: 0}},
+		{ID: focused, Node: NodeTrigger, Name: "When the page is selected", Input: map[string]any{"trigger": TriggerTabSelected, "url": item.URL}, Position: &NodePosition{X: 0, Y: 140}},
+		{ID: items, Node: NodeGitHubItems, Name: "GitHub pull requests and issues", Input: map[string]any{"repo": match[1] + "/" + match[2]}, Position: &NodePosition{X: 280, Y: 70}},
+		{ID: shown, Node: NodeLivePut, Name: "Show as live", Input: map[string]any{"url": item.URL}, Position: &NodePosition{X: 560, Y: 70}},
 	}
-	children := []LiveChild{}
-	for _, kind := range []string{"pr", "issue"} {
-		found, err := getGitHubItems(ctx, repo, kind)
-		if err != nil {
-			item.Error = err.Error()
-			return
+	action.Links = []ActionLink{
+		{ID: uuid.NewString(), From: timer, To: items, Type: object},
+		{ID: uuid.NewString(), From: focused, To: items, Type: object},
+		{ID: uuid.NewString(), From: items, To: shown, Type: object},
+	}
+	return action
+}
+
+func getLiveAction(address string) (Action, bool, error) {
+	actions, err := GetActions()
+	if err != nil {
+		return Action{}, false, err
+	}
+	for _, action := range actions {
+		for _, key := range []string{NodeLivePut, NodeLiveTitle} {
+			if shown := action.NodeOf(key); shown != nil && shown.Input["url"] == address {
+				return action, true, nil
+			}
 		}
-		children = append(children, found...)
 	}
-	item.Error = ""
-	item.Children = children
-	item.Count = len(children)
+	return Action{}, false, nil
+}
+
+func putLiveItem(ctx context.Context, item LiveItem) error {
+	action, exists, err := getLiveAction(item.URL)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		action = item.action()
+		if err := PutAction(ctx, action); err != nil {
+			return err
+		}
+	}
+	result, err := PostTrigger(ctx, TriggerCall{Trigger: TriggerInterval, Action: action.ID})
+	if err != nil {
+		return err
+	}
+	for _, run := range result.Runs {
+		if run.Status == RunSucceeded {
+			continue
+		}
+		store, err := GetLive()
+		if err != nil {
+			return err
+		}
+		failed, err := store.Item(item.URL)
+		if err != nil {
+			return err
+		}
+		failed.Error, failed.SyncedAt = run.Error, now()
+		return PutLive(ctx, store)
+	}
+	return nil
 }
 
 func PostLiveSync(ctx context.Context, url string) (LiveStore, error) {
@@ -152,18 +208,20 @@ func PostLiveSync(ctx context.Context, url string) (LiveStore, error) {
 	if err != nil {
 		return LiveStore{}, err
 	}
+	items := store.Items
 	if url != "" {
 		item, err := store.Item(url)
 		if err != nil {
 			return LiveStore{}, err
 		}
-		putLiveItem(ctx, item)
-	} else {
-		for i := range store.Items {
-			putLiveItem(ctx, &store.Items[i])
+		items = []LiveItem{*item}
+	}
+	for _, item := range items {
+		if err := putLiveItem(ctx, item); err != nil {
+			return LiveStore{}, err
 		}
 	}
-	return store, PutLive(ctx, store)
+	return GetLive()
 }
 
 func NewLiveCommand() *cobra.Command {
@@ -212,12 +270,22 @@ func NewLiveCommand() *cobra.Command {
 				return cli.Rejected(url+" is already live", "change it with `slyb live update`")
 			}
 			item := LiveItem{URL: url, Source: getLiveSource(url), Every: every, Children: []LiveChild{}, CreatedAt: now()}
-			putLiveItem(cmd.Context(), &item)
 			store.Items = append(store.Items, item)
 			if err := PutLive(cmd.Context(), store); err != nil {
 				return err
 			}
-			return printValue(cmd, item)
+			if err := putLiveItem(cmd.Context(), item); err != nil {
+				return err
+			}
+			synced, err := GetLive()
+			if err != nil {
+				return err
+			}
+			made, err := synced.Item(url)
+			if err != nil {
+				return err
+			}
+			return printValue(cmd, made)
 		},
 	}
 	create.Flags().IntVar(&every, "every", liveEvery, "Minutes between syncs, 0 to sync only when the page is opened")
@@ -245,6 +313,20 @@ func NewLiveCommand() *cobra.Command {
 				return err
 			}
 			item.Every = updateEvery
+			action, exists, err := getLiveAction(item.URL)
+			if err != nil {
+				return err
+			}
+			if exists && item.Source == LiveGitHub {
+				for i := range action.Nodes {
+					if action.Nodes[i].Node == NodeTrigger && action.Nodes[i].Input["trigger"] == TriggerInterval {
+						action.Nodes[i].Input["every"] = float64(updateEvery)
+					}
+				}
+				if err := PutAction(cmd.Context(), action); err != nil {
+					return err
+				}
+			}
 			if err := PutLive(cmd.Context(), store); err != nil {
 				return err
 			}
@@ -275,6 +357,13 @@ func NewLiveCommand() *cobra.Command {
 				}
 			}
 			store.Items = kept
+			if action, exists, err := getLiveAction(url); err != nil {
+				return err
+			} else if exists {
+				if err := DeleteAction(cmd.Context(), action.ID); err != nil {
+					return err
+				}
+			}
 			if err := PutLive(cmd.Context(), store); err != nil {
 				return err
 			}

@@ -4,6 +4,7 @@ this.slybrowser = class extends ExtensionAPI {
       .getProtocolHandler("resource")
       .QueryInterface(Ci.nsIResProtocolHandler)
       .setSubstitution("slybrowser", this.extension.rootURI);
+    ChromeUtils.importESModule("resource://slybrowser/state.sys.mjs").State.pages = this.extension.baseURI.spec;
     ChromeUtils.importESModule("resource://slybrowser/server.sys.mjs").start();
   }
 
@@ -22,6 +23,7 @@ this.slybrowser = class extends ExtensionAPI {
           const result = await state().runSlyb(args);
           return { summary: result?.summary ?? result?.name ?? "" };
         },
+        postAction: async args => ({ result: JSON.stringify(await state().runSlyb(["action", ...args])) }),
         notePage: async (page, tabId) => {
           const tab = context.extension.tabManager.get(tabId, null)?.nativeTab;
           state().State.notePage(page, tab?.getAttribute("zen-workspace-id") ?? "");

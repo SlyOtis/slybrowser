@@ -18,6 +18,7 @@ slybrowser is the official Zen app with an unsigned privileged experiment extens
 7. Projects view: one card per project of this space, by shelf, with its open tabs, the pages Claude used in it and the pages you visited. No space header. The first assistant action on a project makes it a group linked to it.
 8. Every link has a "…" button and a right-click menu: sort it into a group, remove it from history, from Claude or both, isolate it in a new group with a login of its own, either with the site's current cookies copied in (Isolate with this session…) or signed out (Isolate in its own group…), or clear the history of its whole domain. Removals are instant and finish in the background.
 9. A group's "…" menu holds Remove group… (it and its pages leave the sidebar, its open tabs stay as loose tabs) and Delete group… (its open tabs close too), both behind a warning.
+9.1. The menus of a workspace, a space and a group each hold Actions…, which opens the actions view for it in a tab: the catalogue of triggers and nodes on the left, the node graph of the chosen action in the middle, its test result and recorded runs on the right. A node is added from the catalogue, linked by dragging from its handle, configured with a double click, and removed with delete.
 10. cmd or ctrl plus w unloads a tab that belongs to a group and keeps it in the group's list; it closes a pinned tab that belongs to no group.
 11. Every AI action animates the element it started from; nothing pops up for it.
 12. The welcome page: the greeting and tagline, then the journey since the day's start as a tree grown from the roots, with times on the trunk, each point on a branch with icon actions, its subpages and followed links as leaves, and all-at-once actions at the roots.
@@ -45,6 +46,10 @@ A workspace is Zen's workspace: it has exactly one profile (its container, named
 | `slyb summary create [--space\|--group [--section]\|--project]` / `summary get` / `summary delete <id>` | summaries in the space's AI area |
 | `slyb suggestion apply <welcome\|summary_id> <group\|space\|rule> <index> [--page <url>]` | make what a summary suggested |
 | `slyb rule create --space\|--group [--section] (--script\|--file\|--ask "<what to catch>")` / `rule update <id> (--name\|--script\|--file\|--ask "<how it should change>")` / `rule get` / `rule delete <id>` / `rule match <url>` | Tengo rules for pages opened from outside the browser |
+| `slyb action get [id] [--workspace\|--space\|--group] [--runs]` / `action create <name> [--workspace\|--space\|--group <id>] [--trigger <event>]` / `action update <id> [--name] [--status active\|paused]` / `action delete <id>` | actions: node graphs that run on a browser event, for a workspace, a space, a group or the whole browser |
+| `slyb action node get [action_id]` / `action node create <action_id> (--node <key> \| --kind <kind> --code\|--file) [--name] [--input <json>]` / `action node update <action_id> <node_id>` / `action node delete <action_id> <node_id>` | the catalogue of nodes, and the nodes placed in an action |
+| `slyb action link create <action_id> <from> <to> [--type] [--path]` / `action link delete <action_id> <link_id>` | the links between the nodes |
+| `slyb action run <trigger> [--action <id>] [--data <json>] [--dry]` | run the actions an event starts, or one action, and print each node's result and the effects |
 | `slyb space get` / `space create <name> [--color]` / `space update <id>` | spaces, each with its own profile |
 | `slyb space folder get\|create\|delete <space_id> <path>` | folders whose projects belong to a space |
 | `slyb space domain get\|create\|delete <space_id> <domain>` | a space's domain: its icon and theme, and the pages opened from outside that belong to it |
@@ -74,7 +79,17 @@ Zen takes one automation session at a time. slyb finds the page and makes Zen av
 
 ## Rules for pages opened from outside
 
-A rule belongs to a space, a group or a section. Its script reads `url`, `host`, `path` and `title`, and for a project `folder`, `remote` and `email`, and sets `result = true` when the page or project belongs. Section rules run first, then group rules, then space rules. A matched page opens in that space, lands among the group's unverified pages in the rule's section, and the sidebar scrolls to it. Space rules also place projects.
+A rule belongs to a space, a group or a section. Its script reads `url`, `host`, `path` and `title`, and for a project `folder`, `remote` and `email`, and sets `result = true` when the page or project belongs; `text`, `fmt`, `math` and `times` are there without an import. Section rules run first, then group rules, then space rules. A matched page opens in that space, lands among the group's unverified pages in the rule's section, and the sidebar scrolls to it. Space rules also place projects.
+
+## Actions
+
+An action is a graph of nodes that starts at a trigger. The browser sends `tab.opened`, `tab.closed`, `tab.selected`, `page.loaded`, `page.outside` (a page opened from another app) and `interval`; organize sends `organize.done` with the pages it could not place as `unplaced`; any other name is an event an action emits. A trigger node takes `every`, minutes between interval runs, and `url`, to start for one page only. An action of a workspace, a space or a group runs only for events from it.
+
+A node is one from the catalogue, set with `--input`, or one of its own with Tengo code that reads `input` and `data` and returns what the next node receives; a condition returns true or false and leaves by a `true` or `false` link, and the node after it receives what the condition received. The helpers are `tabs()`, `page(url)`, `content(tab)`, `github(repo, kind)`, and the effects `place(url, group, section)`, `group(title, space, urls)`, `order(group, urls)`, `live(url, count, children)` and `emit(name, data)`. `action get <id>` lists `problems` while the graph cannot run.
+
+1. Run `action run <trigger> --action <id> --dry --data '<event>'` before leaving an action active: a dry run returns what every node returned and carries out no effect.
+2. A rule and a live item are actions made by `rule create` and `live create`; change them through those commands and they stay readable there.
+3. The action Loose pages runs after organize and groups what organize could not place by site in the space named Loose.
 
 ## The welcome journey
 

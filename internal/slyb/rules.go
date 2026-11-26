@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
+	"regexp"
 	"strings"
-	"time"
 
-	"github.com/d5/tengo/v2"
-	"github.com/d5/tengo/v2/stdlib"
+	"github.com/google/uuid"
 	"github.com/nimling/nimbody/cli"
+	"github.com/nimling/nimflow/graph"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,12 @@ const (
 	ScopeSpace   = "space"
 	ScopeGroup   = "group"
 	ScopeSection = "section"
+
+	ruleStart = "url := data.url; host := data.host; path := data.path; title := data.title; folder := data.folder; remote := data.remote; email := data.email; result := false\n"
+	ruleEnd   = "\nreturn result"
 )
+
+var ruleImport = regexp.MustCompile(`\w+[ \t]*:=[ \t]*import\("\w+"\)[ \t]*;?[ \t]*\n?`)
 
 type Rule struct {
 	ID        string `json:"id"`
@@ -46,24 +50,115 @@ type RuleMatch struct {
 	ID      string `json:"id"`
 }
 
+func (rule Rule) placement() (ActionScope, map[string]any) {
+	if rule.Group == "" {
+		return ActionScope{Kind: ScopeWorkspace, ID: rule.Space}, map[string]any{"group": "", "section": ""}
+	}
+	return ActionScope{Kind: ScopeGroup, ID: rule.Group, Section: rule.Section}, map[string]any{"group": rule.Group, "section": rule.Section, "workspace": rule.Space}
+}
+
+func (rule Rule) code() string {
+	return ruleStart + ruleImport.ReplaceAllString(rule.Script, "") + ruleEnd
+}
+
+func (rule Rule) action() Action {
+	scope, input := rule.placement()
+	trigger, matches, place := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	return Action{
+		ID:        rule.ID,
+		Name:      rule.Name,
+		Status:    ActionActive,
+		Scope:     scope,
+		CreatedAt: rule.CreatedAt,
+		Nodes: []ActionNode{
+			{ID: trigger, Node: NodeTrigger, Name: "Page opened from outside", Input: map[string]any{"trigger": TriggerPageOutside}, Position: &NodePosition{X: 0, Y: 0}},
+			{ID: matches, Name: "Matches", Kind: string(graph.KindCondition), Code: rule.code(), Position: &NodePosition{X: 280, Y: 0}},
+			{ID: place, Node: NodePagePlace, Name: "Place the page", Input: input, Position: &NodePosition{X: 560, Y: 0}},
+		},
+		Links: []ActionLink{
+			{ID: uuid.NewString(), From: trigger, To: matches, Type: string(graph.LinkTypeObject)},
+			{ID: uuid.NewString(), From: matches, To: place, Type: string(graph.LinkTypeTrue)},
+		},
+	}
+}
+
+func (action Action) condition() *ActionNode {
+	for i := range action.Nodes {
+		if action.Nodes[i].Kind == string(graph.KindCondition) && strings.HasPrefix(action.Nodes[i].Code, ruleStart) {
+			return &action.Nodes[i]
+		}
+	}
+	return nil
+}
+
+func (action Action) rule() (Rule, bool) {
+	place, matches := action.NodeOf(NodePagePlace), action.condition()
+	if place == nil || matches == nil {
+		return Rule{}, false
+	}
+	rule := Rule{ID: action.ID, Name: action.Name, Scope: ScopeSpace, Space: action.Scope.ID, CreatedAt: action.CreatedAt}
+	rule.Script = strings.TrimSuffix(strings.TrimPrefix(matches.Code, ruleStart), ruleEnd)
+	if action.Scope.Kind == ScopeGroup {
+		rule.Scope, rule.Group, rule.Section = ScopeGroup, action.Scope.ID, action.Scope.Section
+		rule.Space, _ = place.Input["workspace"].(string)
+		if rule.Section != "" {
+			rule.Scope = ScopeSection
+		}
+	}
+	return rule, true
+}
+
 func GetRules() (RuleStore, error) {
-	path, err := homeFile("rules.json")
+	actions, err := GetActions()
 	if err != nil {
 		return RuleStore{}, err
 	}
 	store := RuleStore{Rules: []Rule{}}
-	if err := readJSONFile(path, &store); err != nil && !os.IsNotExist(err) {
-		return RuleStore{}, err
+	for _, action := range actions {
+		if rule, ok := action.rule(); ok {
+			store.Rules = append(store.Rules, rule)
+		}
 	}
 	return store, nil
 }
 
-func PutRules(store RuleStore) error {
-	path, err := homeFile("rules.json")
+func PutRules(ctx context.Context, store RuleStore) error {
+	actions, err := GetActions()
 	if err != nil {
 		return err
 	}
-	return writeJSONFile(path, store)
+	held := map[string]Action{}
+	for _, action := range actions {
+		if _, ok := action.rule(); ok {
+			held[action.ID] = action
+		}
+	}
+	for _, rule := range store.Rules {
+		action, exists := held[rule.ID]
+		delete(held, rule.ID)
+		if !exists {
+			if err := PutAction(ctx, rule.action()); err != nil {
+				return err
+			}
+			continue
+		}
+		if current, _ := action.rule(); current == rule {
+			continue
+		}
+		scope, input := rule.placement()
+		action.Name, action.Scope = rule.Name, scope
+		action.condition().Code = rule.code()
+		action.NodeOf(NodePagePlace).Input = input
+		if err := PutAction(ctx, action); err != nil {
+			return err
+		}
+	}
+	for id := range held {
+		if err := DeleteAction(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type RuleInput struct {
@@ -75,28 +170,28 @@ type RuleInput struct {
 }
 
 func runRule(ctx context.Context, rule Rule, page RuleInput) (bool, error) {
-	parsed, _ := url.Parse(page.URL)
-	host, path := "", ""
-	if parsed != nil {
-		host, path = strings.ToLower(parsed.Hostname()), parsed.EscapedPath()
-	}
-	script := tengo.NewScript([]byte(rule.Script))
-	script.SetImports(stdlib.GetModuleMap("text", "fmt", "strings"))
-	for name, value := range map[string]any{"url": page.URL, "host": host, "path": path, "title": page.Title, "folder": page.Folder, "remote": page.Remote, "email": page.Email, "result": false} {
-		if err := script.Add(name, value); err != nil {
-			return false, err
-		}
-	}
-	compiled, err := script.Compile()
+	catalogue, err := GetCatalogue()
 	if err != nil {
-		return false, fmt.Errorf("rule %s does not compile: %w", rule.Name, err)
+		return false, err
 	}
-	run, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	defer cancel()
-	if err := compiled.RunContext(run); err != nil {
-		return false, fmt.Errorf("rule %s failed: %w", rule.Name, err)
+	data := map[string]any{"trigger": TriggerPageOutside, "url": page.URL, "title": page.Title, "folder": page.Folder, "remote": page.Remote, "email": page.Email}
+	putPageFields(data)
+	action := rule.action()
+	run, _ := postActionRun(ctx, action, catalogue, TriggerCall{Trigger: TriggerPageOutside, Data: data, Dry: true})
+	if run.Status == RunRefused {
+		return false, fmt.Errorf("rule %s failed: %s", rule.Name, run.Error)
 	}
-	return compiled.Get("result").Bool(), nil
+	for _, entry := range run.Nodes {
+		if entry.ID != action.condition().ID {
+			continue
+		}
+		if entry.Status == "failed" {
+			return false, fmt.Errorf("rule %s failed: %s", rule.Name, entry.Error)
+		}
+		matched, _ := entry.Result.(bool)
+		return matched, nil
+	}
+	return false, fmt.Errorf("rule %s did not run", rule.Name)
 }
 
 func MatchRules(ctx context.Context, store RuleStore, page Page) (RuleMatch, error) {
@@ -121,8 +216,8 @@ const ruleScriptSchema = `{"type":"object","properties":{"name":{"type":"string"
 
 const ruleLanguage = "A rule is a Tengo script. For a page it reads the strings url, host, path and title; for a project of " +
 	"the user's it reads folder, remote and email, the project's folder, its git remote and its git user email, with url " +
-	"and host set from the remote. It may import the text, fmt and strings modules, and sets result = true when the page or " +
-	"project belongs. Example: text := import(\"text\"); " +
+	"and host set from the remote. The text, fmt, math and times modules are there without an import, and it sets result = true when the page or " +
+	"project belongs. Example: " +
 	"result = text.has_suffix(host, \"git.example.com\")"
 
 func postRuleScript(cmd *cobra.Command, target, ask, current, model string) (string, string, error) {
@@ -177,7 +272,7 @@ func NewRuleCommand() *cobra.Command {
 		Use:   "create",
 		Short: "Add a rule for a space, a group or a section: a Tengo script that sets result = true when a page belongs",
 		Long: "The script runs for a page opened from outside the browser, with url, host, path and title set and the text,\n" +
-			"fmt and strings modules importable. Section rules run first, then group rules, then space rules; the first\n" +
+			"fmt, math and times modules there without an import. Section rules run first, then group rules, then space rules; the first\n" +
 			"that sets result = true places the page: it opens in that space, and with a group it lands in the group's\n" +
 			"unverified pages, in the section when the rule has one. --ask lets the assistant write the script.",
 		Example: "slyb rule create --group 3f9a2c1b7d4e --section Tst --ask \"the tst hosts of the app\"",
@@ -237,7 +332,7 @@ func NewRuleCommand() *cobra.Command {
 				return err
 			}
 			store.Rules = append(store.Rules, made)
-			if err := PutRules(store); err != nil {
+			if err := PutRules(cmd.Context(), store); err != nil {
 				return err
 			}
 			return printValue(cmd, made)
@@ -274,7 +369,7 @@ func NewRuleCommand() *cobra.Command {
 				return cli.Rejected("no rule with id "+args[0], "read the ids with `slyb rule get`")
 			}
 			store.Rules = kept
-			if err := PutRules(store); err != nil {
+			if err := PutRules(cmd.Context(), store); err != nil {
 				return err
 			}
 			return printValue(cmd, map[string]any{"summary": "removed", "id": args[0]})
@@ -343,7 +438,7 @@ func NewRuleCommand() *cobra.Command {
 				return cli.Rejected(err.Error(), "")
 			}
 			*found = changed
-			if err := PutRules(store); err != nil {
+			if err := PutRules(cmd.Context(), store); err != nil {
 				return err
 			}
 			return printValue(cmd, changed)
