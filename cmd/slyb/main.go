@@ -41,6 +41,7 @@ func main() {
 		slyb.NewProfileCommand(),
 		slyb.NewWelcomeCommand(),
 		slyb.NewSummaryCommand(),
+		slyb.NewActionCommand(),
 		slyb.NewRuleCommand(),
 		slyb.NewForgottenCommand(),
 		slyb.NewWorkCommand(),
@@ -67,6 +68,7 @@ func main() {
 		Description: "Control the slybrowser build of Zen from Claude: tabs, folders, spaces, sidebar, history and Claude sorting",
 		Skill:       slybrowser.Skill,
 		Version:     slyb.GetVersion,
+		Hosts:       []cli.Host{cli.Claude, cli.Codex, cli.Gemini, cli.OpenCode, cli.Desktop, cli.ChatGPT, cli.Antigravity},
 	}))
 	root.AddCommand(cli.MCPCommand(root, "slyb", slyb.GetVersion))
 	root.AddCommand(&cobra.Command{

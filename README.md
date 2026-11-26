@@ -34,7 +34,7 @@ slyb plugin install
 
 `just install` builds `slyb`, puts it in `$(go env GOPATH)/bin` and runs `slyb install`, which writes the extension to `~/.slyb/browser` and registers it in the default Zen profile. Pass `slyb install --profile <dir>` for another profile. A changed extension loads after `just install` and `slyb restart`.
 
-`slyb plugin install` adds the skill and the MCP server to Claude Code. `just install-cli-completion` adds shell completion.
+`slyb plugin install` adds the skill and the MCP server to the one host it finds on the machine and asks which when it finds several. A flag picks the host, and several flags can be combined: `--claude` for Claude Code, `--codex` for Codex CLI, `--chatgpt` for ChatGPT desktop, `--gemini` for Gemini CLI, `--opencode` for opencode, `--desktop` for Claude Desktop and `--antigravity` for Antigravity. Every other entry in the host's own config is kept, and `slyb plugin status` says whether each installed host matches the binary. `just install-cli-completion` adds shell completion.
 
 Coming from Arc or Dia, `just import arc` and `just import dia` copy spaces, folders, pinned tabs, open tabs and history into Zen, once, with Zen running. Add `--plan` to see what would happen first.
 
@@ -61,7 +61,7 @@ slyb welcome refresh
 1. **The extension** lives in `browser/` and is embedded in the `slyb` binary. It is an unsigned experiment extension that runs in the browser's parent process, draws the sidebar, and serves a unix socket at `~/.slyb/browser.sock`.
 2. **The cli** in `internal/slyb/` writes one `{"method","params"}` request per connection to that socket and reads the reply. Everything the sidebar's buttons do, they do by starting `slyb`.
 3. **The assistant** is Claude Code run headless by the cli with a json schema for the answer. Code gathers the catalog and applies the result; the model only decides where things go.
-4. **The MCP server** is `slyb mcp`, the same commands exposed as tools, so an agent can read and arrange the browser. `slyb plugin install` installs it into Claude Code together with the skill.
+4. **The MCP server** is `slyb mcp`, the same commands exposed as tools, so an agent can read and arrange the browser. `slyb plugin install` installs it together with the skill into Claude Code, Codex, ChatGPT desktop, Gemini CLI, opencode, Claude Desktop or Antigravity.
 5. **State** is plain json under `~/.slyb`: groups, rules, spaces, projects, settings and the welcome page. Nothing is seeded; a fresh install starts empty.
 
 `slyb install` turns off extension signature checks in the Zen profile it installs into, which is what lets an unsigned extension load. Use a profile you are comfortable doing that in.
