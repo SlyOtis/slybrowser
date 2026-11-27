@@ -2233,3 +2233,31 @@ menuitem.menuitem-iconic[image^="chrome://global/skin/icons/"] {
   margin-inline-start: 18px;
   font-size: 0.92em;
 }
+
+html|div.sly-library[hidden] {
+  display: none;
+}
+
+html|*.zen-library-tab[data-section^="sly-"] html|div.zen-library-tab-icon-image {
+  width: var(--zen-library-sprite-size);
+  background: none;
+  animation: none;
+  mask: var(--sly-library-icon) center / 62% no-repeat;
+  background-color: currentColor;
+}
+
+html|*.zen-library-tab[data-section^="sly-"]:not([active]) html|div.zen-library-tab-icon-image {
+  opacity: 0.75;
+}
+
+html|*.zen-library-tab[data-section="sly-actions"] {
+  --sly-library-icon: url("chrome://browser/skin/zen-icons/bolt.svg");
+}
+
+html|*.zen-library-tab[data-section="sly-spaces"] {
+  --sly-library-icon: url("chrome://browser/skin/zen-icons/selectable/layers.svg");
+}
+
+html|*.zen-library-tab[data-section="sly-groups"] {
+  --sly-library-icon: url("chrome://browser/skin/zen-icons/selectable/grid-2x2.svg");
+}

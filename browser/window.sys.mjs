@@ -479,6 +479,7 @@ function attach(win) {
   takeSpaceIconMenu(win);
   takeSpaceMenu(win);
   routeExternal(win);
+  attachLibrary(win);
   const putProfiles = () => {
     for (const space of win.gZenWorkspaces.getWorkspaces()) {
       putSpaceLook(win, space);
@@ -3754,7 +3755,175 @@ async function postEvent(trigger, data) {
   }
 }
 
-function openActions(win, kind, id, title) {
-  const query = new URLSearchParams({ kind, id, title });
+const libraryDropped = ["space-routing", "media", "boosts"];
+
+function attachLibrary(win) {
+  if (libraryDropped.includes(Services.prefs.getStringPref("zen.library.last-tab", ""))) {
+    Services.prefs.setStringPref("zen.library.last-tab", "history");
+  }
+  const registry = win.L10nRegistry.getInstance();
+  if (!registry.hasSource("slybrowser")) {
+    registry.registerSources([new win.L10nFileSource("slybrowser", "app", Services.locale.availableLocales, "resource://slybrowser/")]);
+  }
+  win.document.l10n.addResourceIds(["library.ftl"]);
+  win.customElements.whenDefined("zen-library").then(() => {
+    const library = win.document.querySelector("zen-library");
+    const zen = library.zenLibrarySections;
+    if (zen.spaces) {
+      zen.spaces.tabLabel = "slyb-library-workspaces";
+    }
+    const sections = [
+      zen.history,
+      zen.downloads,
+      librarySection(win, library, "sly-actions", "slyb-library-actions", "Search actions", actionRows),
+      zen.spaces,
+      librarySection(win, library, "sly-spaces", "slyb-library-spaces", "Search spaces", spaceRows),
+      librarySection(win, library, "sly-groups", "slyb-library-groups", "Search groups", groupRows),
+    ].filter(Boolean);
+    library.zenLibrarySections = Object.fromEntries(sections.map(section => [section.id, section]));
+    if (!(library.activeTab in library.zenLibrarySections)) {
+      library.activeTab = "history";
+    }
+    library.requestUpdate();
+  }).catch(logError);
+}
+
+function librarySection(win, library, id, label, placeholder, rows) {
+  const doc = win.document;
+  const html = (name, className, text = "") => {
+    const node = doc.createElementNS("http://www.w3.org/1999/xhtml", name);
+    node.className = className;
+    node.textContent = text;
+    return node;
+  };
+  let node = null;
+  return {
+    id,
+    label,
+    render() {
+      if (node) {
+        return node;
+      }
+      node = html("div", "zen-library-section sly-library");
+      node.dataset.section = id;
+      const top = html("div", "zen-library-search-top");
+      const header = html("div", "zen-library-search-header");
+      const box = html("div", "zen-library-search-box");
+      const glass = html("img", "");
+      glass.src = "chrome://global/skin/icons/search-glass.svg";
+      const field = html("input", "");
+      field.placeholder = placeholder;
+      box.append(glass, field);
+      header.append(box);
+      top.append(header);
+      const results = html("div", "zen-library-search-results");
+      node.append(top, results);
+      const fill = async () => {
+        const terms = field.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const groups = (await rows(win)).map(group => ({ ...group, rows: group.rows.filter(row => terms.every(term => `${row.title} ${row.subtitle} ${group.title}`.toLowerCase().includes(term))) })).filter(group => group.rows.length);
+        results.replaceChildren(...groups.map(group => {
+          const block = html("div", "zen-library-group");
+          block.append(html("h3", "", group.title), ...group.rows.map(row => {
+            const item = html("div", "zen-library-row");
+            const text = html("div", "zen-library-row-text");
+            text.append(html("span", "zen-library-row-title", row.title), html("span", "zen-library-row-subtitle", row.subtitle));
+            item.append(iconElement(doc, row.icon, "zen-library-row-icon"), text);
+            item.addEventListener("click", () => {
+              library.constructor.close();
+              Promise.resolve(row.open()).catch(logError);
+            });
+            return item;
+          }));
+          return block;
+        }));
+        if (!groups.length) {
+          results.append(html("div", "zen-library-empty", terms.length ? "Nothing matches" : "Nothing here yet"));
+        }
+      };
+      field.addEventListener("input", () => fill().catch(logError));
+      node.onShown = () => fill().catch(logError);
+      node.onLibraryOpened = node.onShown;
+      return node;
+    },
+  };
+}
+
+function count(number, word) {
+  return `${number} ${word}${number === 1 ? "" : "s"}`;
+}
+
+function spacesOf(workspace) {
+  return (State.spaces ?? []).filter(space => space.workspace === workspace);
+}
+
+async function revealCard(win, workspace, keys, selector) {
+  if (win.gZenWorkspaces.activeWorkspace !== workspace && win.gZenWorkspaces.getWorkspaceFromId(workspace)) {
+    await win.gZenWorkspaces.changeWorkspaceWithID(workspace);
+  }
+  for (const key of keys) {
+    putCardState(key, { collapsed: false });
+  }
+  await renderCards(win);
+  win.setTimeout(() => {
+    const card = win.document.querySelector(selector);
+    const board = card?.closest(".sly-cards");
+    if (board) {
+      const offset = card.getBoundingClientRect().top - board.getBoundingClientRect().top;
+      board.scrollTo({ top: board.scrollTop + offset, behavior: "smooth" });
+    }
+  }, 600);
+}
+
+function spaceRows(win) {
+  return win.gZenWorkspaces.getWorkspaces().map(workspace => ({
+    title: workspace.name,
+    rows: spacesOf(workspace.uuid).map(space => ({
+      title: space.name,
+      subtitle: count(State.groups.filter(group => group.space === workspace.uuid && (group.space_id || spacesOf(workspace.uuid)[0].id) === space.id).length, "group"),
+      icon: space.icon || zenIcon("selectable/layers"),
+      open: () => revealCard(win, workspace.uuid, [`space:${space.id}`], `.sly-space-block[data-space="${space.id}"]`),
+    })),
+  }));
+}
+
+function groupRows(win) {
+  return win.gZenWorkspaces.getWorkspaces().flatMap(workspace => spacesOf(workspace.uuid).map(space => ({
+    title: `${workspace.name} · ${space.name}`,
+    rows: State.groups.filter(group => group.space === workspace.uuid && (group.space_id || spacesOf(workspace.uuid)[0].id) === space.id).map(group => ({
+      title: group.title,
+      subtitle: count(group.sections.reduce((sum, section) => sum + section.pages.length, 0), "page"),
+      icon: group.icon || groupIcons.get(group.id),
+      open: () => {
+        opened.add(`group:${group.id}`);
+        return revealCard(win, workspace.uuid, [`space:${space.id}`], `.sly-card[data-key="group:${group.id}"]`);
+      },
+    })),
+  })));
+}
+
+async function actionRows(win) {
+  const scopes = { "": "Everywhere", workspace: "Workspaces", space: "Spaces", group: "Groups" };
+  const titles = {
+    workspace: id => win.gZenWorkspaces.getWorkspaceFromId(id)?.name,
+    space: id => (State.spaces ?? []).find(space => space.id === id)?.name,
+    group: id => State.groups.find(group => group.id === id)?.title,
+  };
+  const actions = await runSlybCommand(["action", "get"]);
+  return Object.entries(scopes).map(([kind, title]) => ({
+    title,
+    rows: actions.filter(action => (action.scope?.kind ?? "") === kind).map(action => {
+      const scope = titles[kind]?.(action.scope?.id) ?? "";
+      return {
+        title: action.name,
+        subtitle: [scope, action.status, ...(action.triggers ?? [])].filter(Boolean).join(" · "),
+        icon: zenIcon("bolt"),
+        open: () => openActions(win, kind, action.scope?.id ?? "", scope, action.id),
+      };
+    }),
+  }));
+}
+
+function openActions(win, kind, id, title, action = "") {
+  const query = new URLSearchParams({ kind, id, title, action });
   win.openTrustedLinkIn(`${State.pages}actions.html?${query}`, "tab");
 }
