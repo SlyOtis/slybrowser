@@ -543,8 +543,20 @@ func postOrganizeGroup(cmd *cobra.Command, index ProjectIndex, groupID, scope, i
 			added++
 		}
 	}
+	filled := group.Sections[:0]
+	count := 0
+	for _, section := range group.Sections {
+		if inSection(section.Label, scope) {
+			if len(section.Pages) == 0 {
+				continue
+			}
+			count++
+		}
+		filled = append(filled, section)
+	}
+	group.Sections = filled
 	result := map[string]any{
-		"summary": fmt.Sprintf("%s: %d sections, %d pages added", title, len(sections), added),
+		"summary": fmt.Sprintf("%s: %d sections, %d pages added", title, count, added),
 		"plan":    plan,
 		"group":   summarizeGroup(*group),
 	}
